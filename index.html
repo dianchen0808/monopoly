@@ -1,46 +1,492 @@
+
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EcoPoly: SDG Edition</title>
+    
+    <!-- 1. Tailwind CSS for Styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- 3. PeerJS for P2P Multiplayer -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    
+    <!-- 4. Babel for running JSX in browser without build tools -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-      body {
-        font-family: 'Inter', sans-serif;
-        background-color: #f0fdf4; /* green-50 */
-      }
-      /* Custom scrollbar for better aesthetics */
-      ::-webkit-scrollbar {
-        width: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #888;
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #555;
-      }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f0fdf4; }
+        .perspective-board { transform: rotateX(20deg) scale(0.95); transition: transform 0.5s; }
+        .tile-shadow { box-shadow: inset 0 0 20px rgba(0,0,0,0.05); }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
     </style>
-  <script type="importmap">
+<script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react/": "https://esm.sh/react@18.2.0/",
-    "react-dom": "https://esm.sh/react-dom@18.2.0",
-    "react-dom/": "https://esm.sh/react-dom@18.2.0/",
-    "lucide-react": "https://esm.sh/lucide-react@0.263.1",
-    "peerjs": "https://esm.sh/peerjs@1.5.2"
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "peerjs": "https://aistudiocdn.com/peerjs@^1.5.5",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0"
   }
 }
 </script>
 </head>
-  <body>
+<body>
     <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
-  </body>
+
+    <!-- MAIN GAME SCRIPT (JSX) -->
+    <script type="text/babel">
+        const { useState, useEffect, useReducer, useRef, useMemo } = React;
+
+        // --- ICONS (SVG Components) ---
+        const IconDice = ({ val }) => {
+            const dots = {
+                1: [[50,50]],
+                2: [[25,25], [75,75]],
+                3: [[25,25], [50,50], [75,75]],
+                4: [[25,25], [25,75], [75,25], [75,75]],
+                5: [[25,25], [25,75], [50,50], [75,25], [75,75]],
+                6: [[25,25], [25,50], [25,75], [75,25], [75,50], [75,75]]
+            };
+            return (
+                <svg width="40" height="40" viewBox="0 0 100 100" className="bg-white rounded-lg border-2 border-slate-800 shadow-md">
+                    {dots[val]?.map(([cx, cy], i) => (
+                        <circle key={i} cx={cx} cy={cy} r="10" fill="#333" />
+                    ))}
+                </svg>
+            );
+        };
+        const IconUsers = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+        const IconCopy = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>;
+
+        // --- CONSTANTS & DATA ---
+        const PLAYER_COLORS = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b'];
+        
+        const TILES = [
+            { id: 0, name: 'GO', type: 'START', description: 'Collect $200' },
+            { id: 1, name: 'Solar Field', type: 'PROPERTY', price: 60, rent: 2, group: 'brown' },
+            { id: 2, name: 'Community Chest', type: 'CHANCE' },
+            { id: 3, name: 'Wind Farm', type: 'PROPERTY', price: 60, rent: 4, group: 'brown' },
+            { id: 4, name: 'Carbon Tax', type: 'TAX', price: 100, description: 'Pay $100' },
+            { id: 5, name: 'Hydro Plant', type: 'PROPERTY', price: 100, rent: 6, group: 'light_blue' },
+            { id: 6, name: 'Recycling Ctr', type: 'PROPERTY', price: 100, rent: 6, group: 'light_blue' },
+            { id: 7, name: 'Bio Lab', type: 'PROPERTY', price: 120, rent: 8, group: 'light_blue' },
+            { id: 8, name: 'Eco Prison', type: 'JAIL', description: 'Just Visiting' },
+            { id: 9, name: 'Urban Garden', type: 'PROPERTY', price: 140, rent: 10, group: 'pink' },
+            { id: 10, name: 'Green School', type: 'PROPERTY', price: 140, rent: 10, group: 'pink' },
+            { id: 11, name: 'Eco University', type: 'PROPERTY', price: 160, rent: 12, group: 'pink' },
+            { id: 12, name: 'Public Park', type: 'PARKING', description: 'Free Resting' },
+            { id: 13, name: 'Electric Bus', type: 'PROPERTY', price: 180, rent: 14, group: 'orange' },
+            { id: 14, name: 'Chance', type: 'CHANCE' },
+            { id: 15, name: 'Metro Line', type: 'PROPERTY', price: 200, rent: 16, group: 'orange' },
+            { id: 16, name: 'Forest Reserve', type: 'PROPERTY', price: 220, rent: 18, group: 'red' },
+            { id: 17, name: 'Ocean Cleanup', type: 'PROPERTY', price: 220, rent: 18, group: 'red' },
+            { id: 18, name: 'Clean Water', type: 'PROPERTY', price: 240, rent: 20, group: 'red' },
+            { id: 19, name: 'Global Summit', type: 'PROPERTY', price: 350, rent: 35, group: 'blue' },
+        ];
+
+        const SDG_QUESTIONS = [
+            { id: 1, question: "Which SDG aims to end poverty in all its forms everywhere?", options: ["Goal 1: No Poverty", "Goal 5: Gender Equality", "Goal 13: Climate Action", "Goal 10: Reduced Inequalities"], correctIndex: 0 },
+            { id: 2, question: "What is the main focus of SDG 13?", options: ["Life Below Water", "Quality Education", "Climate Action", "Zero Hunger"], correctIndex: 2 },
+            { id: 3, question: "Which goal promotes inclusive and equitable quality education?", options: ["Goal 3", "Goal 4", "Goal 8", "Goal 9"], correctIndex: 1 },
+            { id: 4, question: "SDG 7 focuses on affordable and clean...?", options: ["Water", "Energy", "Air", "Food"], correctIndex: 1 },
+            { id: 5, question: "Which goal aims to conserve and sustainably use the oceans?", options: ["Goal 15: Life on Land", "Goal 6: Clean Water", "Goal 14: Life Below Water", "Goal 12: Responsible Consumption"], correctIndex: 2 },
+        ];
+
+        // --- GAME LOGIC (REDUCER) ---
+        const initialState = {
+            players: [],
+            currentPlayerIndex: 0,
+            tiles: TILES,
+            gameStatus: 'LOBBY',
+            logs: ['Welcome to EcoPoly! Create or join a game.'],
+            dice: [1, 1],
+            winner: null
+        };
+
+        const gameReducer = (state, action) => {
+            switch (action.type) {
+                case 'JOIN_GAME': {
+                    if (state.players.find(p => p.peerId === action.payload.peerId)) return state;
+                    const newPlayer = { ...action.payload, color: PLAYER_COLORS[state.players.length % 4] };
+                    return {
+                        ...state,
+                        players: [...state.players, newPlayer],
+                        logs: [`${newPlayer.name} joined the game.`, ...state.logs],
+                    };
+                }
+                case 'RESET_GAME': {
+                    return {
+                        ...initialState,
+                        gameStatus: 'PLAYING',
+                        players: state.players.map(p => ({
+                            ...p, money: 1500, position: 0, isJailed: false, properties: []
+                        })),
+                        logs: ['Game started!'],
+                    };
+                }
+                case 'SYNC_STATE': return action.payload;
+                case 'ROLL_DICE': {
+                    const pIndex = state.currentPlayerIndex;
+                    const player = state.players[pIndex];
+                    const d1 = Math.ceil(Math.random() * 6);
+                    const d2 = Math.ceil(Math.random() * 6);
+                    const total = d1 + d2;
+                    let newLogs = [...state.logs];
+                    let money = player.money;
+                    
+                    // Simple Move Logic
+                    let newPos = (player.position + total) % 20;
+                    if (newPos < player.position) {
+                        money += 200;
+                        newLogs.unshift(`${player.name} passed GO! +$200`);
+                    }
+
+                    // Simple Effects
+                    const landedTile = state.tiles[newPos];
+                    if (landedTile.type === 'TAX') {
+                        money -= landedTile.price;
+                        newLogs.unshift(`${player.name} paid Tax $${landedTile.price}`);
+                    }
+                    if (landedTile.type === 'CHANCE') {
+                        if (Math.random() > 0.5) { money += 50; newLogs.unshift("Chance: Grant +$50"); }
+                        else { money -= 30; newLogs.unshift("Chance: Fine -$30"); }
+                    }
+
+                    return {
+                        ...state,
+                        dice: [d1, d2],
+                        players: state.players.map((p, i) => i === pIndex ? { ...p, position: newPos, money } : p),
+                        logs: [`${player.name} rolled ${total}.`, ...newLogs]
+                    };
+                }
+                case 'BUY_PROPERTY': {
+                    const player = state.players[state.currentPlayerIndex];
+                    const { tileId } = action.payload;
+                    const tile = state.tiles[tileId];
+                    if (player.money >= tile.price) {
+                        return {
+                            ...state,
+                            players: state.players.map((p, i) => i === state.currentPlayerIndex ? { ...p, money: p.money - tile.price, properties: [...p.properties, tileId] } : p),
+                            tiles: state.tiles.map(t => t.id === tileId ? { ...t, ownerId: player.peerId } : t),
+                            logs: [`${player.name} bought ${tile.name}.`, ...state.logs]
+                        }
+                    }
+                    return state;
+                }
+                case 'PAY_RENT': {
+                    const { amount, to } = action.payload;
+                    const payer = state.players[state.currentPlayerIndex];
+                    const receiver = state.players.find(p => p.peerId === to);
+                    
+                    if (payer.money < amount) {
+                        return { ...state, gameStatus: 'GAME_OVER', winner: receiver.name, logs: [`${payer.name} bankrupt!`, ...state.logs] };
+                    }
+
+                    return {
+                        ...state,
+                        players: state.players.map(p => {
+                            if (p.peerId === payer.peerId) return { ...p, money: p.money - amount };
+                            if (p.peerId === to) return { ...p, money: p.money + amount };
+                            return p;
+                        }),
+                        logs: [`${payer.name} paid rent $${amount}.`, ...state.logs]
+                    };
+                }
+                case 'END_TURN':
+                    return { ...state, currentPlayerIndex: (state.currentPlayerIndex + 1) % state.players.length };
+                default: return state;
+            }
+        };
+
+        // --- COMPONENTS ---
+
+        const BoardTile = ({ tile, players, isCorner }) => {
+            const getGroupColor = (g) => {
+                if(g==='brown') return 'bg-amber-800';
+                if(g==='light_blue') return 'bg-sky-400';
+                if(g==='pink') return 'bg-pink-500';
+                if(g==='orange') return 'bg-orange-500';
+                if(g==='red') return 'bg-red-600';
+                if(g==='blue') return 'bg-blue-800';
+                return 'bg-slate-200';
+            };
+            
+            const owner = players.find(p => p.peerId === tile.ownerId);
+
+            return (
+                <div className={`relative flex flex-col items-center justify-between border border-slate-300 bg-white text-[10px] md:text-xs select-none tile-shadow
+                    ${isCorner ? 'aspect-square' : 'aspect-[3/4] md:aspect-[3/5]'} 
+                    ${tile.type === 'START' ? 'bg-green-100' : ''}`}>
+                    
+                    {tile.group && <div className={`w-full h-[20%] ${getGroupColor(tile.group)} border-b border-slate-300`}></div>}
+                    
+                    <div className="flex-1 flex flex-col justify-center items-center p-1 text-center w-full">
+                        <span className="font-bold leading-tight">{tile.name}</span>
+                        {tile.price && !owner && <span className="text-slate-500">${tile.price}</span>}
+                        {owner && <div className="mt-1 px-1 py-0.5 rounded text-white text-[9px]" style={{backgroundColor: owner.color}}>Owner: {owner.name.substring(0,6)}</div>}
+                        {tile.type === 'CHANCE' && <span className="text-2xl">❓</span>}
+                    </div>
+
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="flex flex-wrap gap-1 justify-center">
+                            {players.filter(p => p.position === tile.id).map(p => (
+                                <div key={p.peerId} className="w-4 h-4 rounded-full border-2 border-white shadow-md z-10" style={{backgroundColor: p.color}} title={p.name} />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [gameState, dispatch] = useReducer(gameReducer, initialState);
+            
+            // Network State
+            const [peerId, setPeerId] = useState('');
+            const [hostId, setHostId] = useState('');
+            const [myId, setMyId] = useState('');
+            const [userName, setUserName] = useState('Player ' + Math.floor(Math.random() * 100));
+            const [isHost, setIsHost] = useState(false);
+            
+            // Modal State
+            const [modalQ, setModalQ] = useState(null);
+            const [tileToBuy, setTileToBuy] = useState(null);
+
+            const peerRef = useRef(null);
+            const connRef = useRef([]);
+
+            // Init Peer
+            useEffect(() => {
+                const peer = new Peer();
+                peer.on('open', (id) => {
+                    setMyId(id);
+                    console.log('My ID:', id);
+                });
+                peer.on('connection', (conn) => {
+                    conn.on('data', (data) => {
+                        // Host Logic: receive action, dispatch, then sync
+                        if (data.type) {
+                            dispatch(data); 
+                            // *Ideally* we broadcast new state here, but for simplicity in this 
+                            // hacky architecture, we rely on the host's useEffect [gameState] to broadcast.
+                        }
+                    });
+                    connRef.current.push(conn);
+                });
+                peerRef.current = peer;
+                return () => peer.destroy();
+            }, []);
+
+            // Host Broadcast
+            useEffect(() => {
+                if (isHost && connRef.current.length > 0) {
+                    connRef.current.forEach(conn => conn.send({ type: 'SYNC_STATE', payload: gameState }));
+                }
+            }, [gameState, isHost]);
+
+            // Handlers
+            const createGame = () => {
+                setIsHost(true);
+                setPeerId(myId);
+                dispatch({ type: 'JOIN_GAME', payload: { peerId: myId, name: userName, money: 1500, position: 0, isJailed: false, properties: [] } });
+                dispatch({ type: 'RESET_GAME' });
+            };
+
+            const joinGame = () => {
+                if (!hostId) return alert("Enter Game ID");
+                const conn = peerRef.current.connect(hostId);
+                conn.on('open', () => {
+                    setPeerId(hostId);
+                    const player = { peerId: myId, name: userName, money: 1500, position: 0, isJailed: false, properties: [] };
+                    conn.send({ type: 'JOIN_GAME', payload: player });
+                    connRef.current = [conn]; // Client stores host conn here
+                });
+                conn.on('data', (data) => {
+                    if (data.type === 'SYNC_STATE') dispatch({ type: 'SYNC_STATE', payload: data.payload });
+                });
+            };
+
+            const sendAction = (action) => {
+                if (isHost) dispatch(action);
+                else connRef.current[0].send(action);
+            };
+
+            // Gameplay Flow
+            const myPlayer = gameState.players.find(p => p.peerId === myId);
+            const isMyTurn = myPlayer && gameState.players[gameState.currentPlayerIndex]?.peerId === myId;
+            const prevPos = useRef(0);
+
+            useEffect(() => {
+                if (!myPlayer) return;
+                if (myPlayer.position !== prevPos.current) {
+                    const tile = gameState.tiles[myPlayer.position];
+                    if (isMyTurn) {
+                        if (tile.type === 'PROPERTY' && !tile.ownerId) {
+                            setModalQ(SDG_QUESTIONS[Math.floor(Math.random()*SDG_QUESTIONS.length)]);
+                            setTileToBuy(tile.id);
+                        } else if (tile.type === 'PROPERTY' && tile.ownerId && tile.ownerId !== myId) {
+                            setTimeout(() => {
+                                alert(`Pay Rent $${tile.rent}`);
+                                sendAction({ type: 'PAY_RENT', payload: { amount: tile.rent, to: tile.ownerId } });
+                            }, 500);
+                        }
+                    }
+                    prevPos.current = myPlayer.position;
+                }
+            }, [myPlayer?.position, isMyTurn]);
+
+            const handleAnswer = (idx) => {
+                if (idx === modalQ.correctIndex) {
+                    if (confirm(`Correct! Buy for $${gameState.tiles[tileToBuy].price}?`)) {
+                        sendAction({ type: 'BUY_PROPERTY', payload: { tileId: tileToBuy } });
+                    }
+                } else {
+                    alert("Wrong answer!");
+                }
+                setModalQ(null);
+            };
+
+            // --- RENDER ---
+            
+            // Grid Styles mapping (0-19)
+            const getGridStyle = (idx) => {
+                if (idx === 0) return { gridRow: 6, gridColumn: 6 };
+                if (idx < 5) return { gridRow: 6, gridColumn: 6 - idx };
+                if (idx === 5) return { gridRow: 6, gridColumn: 1 };
+                if (idx < 10) return { gridRow: 6 - (idx - 5), gridColumn: 1 };
+                if (idx === 10) return { gridRow: 1, gridColumn: 1 };
+                if (idx < 15) return { gridRow: 1, gridColumn: 1 + (idx - 10) };
+                if (idx === 15) return { gridRow: 1, gridColumn: 6 };
+                return { gridRow: 1 + (idx - 15), gridColumn: 6 };
+            };
+
+            // 1. Lobby View
+            if (gameState.gameStatus === 'LOBBY' || (gameState.gameStatus === 'PLAYING' && !peerId)) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-green-400 to-blue-500">
+                        <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full text-center space-y-6">
+                            <h1 className="text-4xl font-extrabold text-slate-800">EcoPoly 🌍</h1>
+                            <p className="text-slate-500">No Install • Multiplayer</p>
+                            <input className="w-full px-4 py-2 border rounded" value={userName} onChange={e=>setUserName(e.target.value)} placeholder="Name" />
+                            <button onClick={createGame} className="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700">Create Game</button>
+                            <div className="flex gap-2">
+                                <input className="flex-1 px-4 py-2 border rounded" value={hostId} onChange={e=>setHostId(e.target.value)} placeholder="Paste Game ID" />
+                                <button onClick={joinGame} className="bg-blue-600 text-white px-6 py-2 rounded font-bold">Join</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // 2. Game View
+            return (
+                <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
+                    {/* Sidebar */}
+                    <div className="w-full md:w-72 bg-white border-r p-4 flex flex-col gap-4 h-[30vh] md:h-screen overflow-y-auto">
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm">
+                            <p className="font-bold text-blue-800 mb-1">Invite ID:</p>
+                            <div className="flex gap-2 items-center">
+                                <code className="bg-white px-2 py-1 rounded border text-xs flex-1 truncate">{peerId}</code>
+                                <button onClick={() => navigator.clipboard.writeText(peerId)}><IconCopy/></button>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <h2 className="font-bold flex items-center gap-2"><IconUsers/> Players</h2>
+                            {gameState.players.map((p, i) => (
+                                <div key={p.peerId} className={`flex justify-between p-2 rounded border ${gameState.currentPlayerIndex === i ? 'border-green-500 bg-green-50' : ''}`}>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-3 h-3 rounded-full" style={{backgroundColor: p.color}}></div>
+                                        <span className="text-sm font-semibold">{p.name}</span>
+                                    </div>
+                                    <span className="font-mono text-green-700 font-bold">${p.money}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex-1 bg-slate-100 rounded p-2 text-xs font-mono overflow-y-auto max-h-40 md:max-h-full">
+                            {gameState.logs.map((l,i) => <div key={i} className="border-b pb-1 mb-1 border-slate-200">{l}</div>)}
+                        </div>
+                    </div>
+
+                    {/* Board */}
+                    <div className="flex-1 bg-green-100 flex items-center justify-center p-2 md:p-8">
+                        <div className="relative w-full max-w-[650px] aspect-square bg-white shadow-2xl rounded-xl border-4 border-slate-800 p-1">
+                            <div className="grid grid-cols-6 grid-rows-6 gap-1 w-full h-full bg-slate-100">
+                                {/* Center Area */}
+                                <div className="col-start-2 col-end-6 row-start-2 row-end-6 bg-white flex flex-col items-center justify-center p-4">
+                                    <h1 className="text-4xl font-black text-green-600/20 rotate-[-12deg] mb-6 select-none">EcoPoly</h1>
+                                    <div className="flex gap-4 mb-6">
+                                        <IconDice val={gameState.dice[0]} />
+                                        <IconDice val={gameState.dice[1]} />
+                                    </div>
+                                    <div className="text-center mb-4">
+                                        <div className="text-xs uppercase text-slate-500 font-bold">Current Turn</div>
+                                        <div className="text-xl font-bold" style={{color: gameState.players[gameState.currentPlayerIndex]?.color}}>
+                                            {gameState.players[gameState.currentPlayerIndex]?.name}
+                                        </div>
+                                    </div>
+                                    {isMyTurn ? (
+                                        <div className="flex gap-2">
+                                            <button onClick={() => sendAction({ type: 'ROLL_DICE' })} className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:scale-105 transition shadow-lg">Roll</button>
+                                            <button onClick={() => sendAction({ type: 'END_TURN' })} className="bg-red-500 text-white px-6 py-2 rounded-lg font-bold hover:scale-105 transition shadow-lg">End Turn</button>
+                                        </div>
+                                    ) : (
+                                        <div className="text-slate-400 italic text-sm animate-pulse">Waiting for opponent...</div>
+                                    )}
+                                </div>
+
+                                {/* Tiles */}
+                                {gameState.tiles.map((tile, i) => (
+                                    <div key={tile.id} style={getGridStyle(i)} className="w-full h-full">
+                                        <BoardTile tile={tile} players={gameState.players} isCorner={[0,5,10,15].includes(i)} />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Modals */}
+                    {modalQ && (
+                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden animate-bounce-in">
+                                <div className="bg-green-600 p-4 text-white font-bold">Answer to Buy!</div>
+                                <div className="p-6">
+                                    <p className="text-lg font-medium mb-4">{modalQ.question}</p>
+                                    <div className="grid gap-2">
+                                        {modalQ.options.map((opt, i) => (
+                                            <button key={i} onClick={() => handleAnswer(i)} className="text-left p-3 border rounded hover:bg-green-50 transition">{opt}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {gameState.gameStatus === 'GAME_OVER' && (
+                         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center text-white flex-col">
+                            <h1 className="text-6xl font-bold text-green-400 mb-4">Game Over!</h1>
+                            <p className="text-2xl">{gameState.winner} wins!</p>
+                            <button onClick={()=>location.reload()} className="mt-8 bg-white text-black px-6 py-2 rounded font-bold">Restart</button>
+                         </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
 </html>
+    
