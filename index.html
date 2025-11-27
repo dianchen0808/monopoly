@@ -387,15 +387,17 @@
                 setUserName(randomName);
 
                 const initPeer = () => {
-                    // Enhanced ICE servers configuration
+                    // Enhanced ICE servers configuration for better connectivity
                     const peer = new Peer(undefined, {
                         debug: 1,
-                        secure: true, // Force HTTPS
+                        secure: true, 
                         config: {
                             iceServers: [
                                 { urls: 'stun:stun.l.google.com:19302' },
                                 { urls: 'stun:stun1.l.google.com:19302' },
                                 { urls: 'stun:stun2.l.google.com:19302' },
+                                { urls: 'stun:stun3.l.google.com:19302' },
+                                { urls: 'stun:stun4.l.google.com:19302' },
                                 { urls: 'stun:global.stun.twilio.com:3478' }
                             ]
                         }
@@ -423,7 +425,7 @@
                     peer.on('error', (err) => {
                         console.error("Peer Error:", err);
                         if (err.type === 'peer-unavailable') {
-                            setStatusMsg("Error: Game ID not found. Check the code.");
+                            setStatusMsg("Error: Game ID not found. PeerJS IDs are Case-Sensitive. Check exact characters.");
                             setIsConnecting(false);
                         } else if (err.type === 'network' || err.type === 'disconnected') {
                             setStatusMsg("Network connection lost. Reconnecting...");
@@ -491,13 +493,13 @@
                     serialization: 'json'
                 });
 
-                // Connection Timeout
+                // Extended Connection Timeout (15s)
                 const timeout = setTimeout(() => {
                     if (!conn.open) {
                         setStatusMsg("Connection timed out. Firewalls might be blocking P2P. Try on 4G/different network.");
                         setIsConnecting(false);
                     }
-                }, 8000);
+                }, 15000);
 
                 conn.on('open', () => {
                     clearTimeout(timeout);
@@ -606,7 +608,9 @@
                             <button onClick={createGame} className="w-full bg-green-500 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-green-600 transition">Create Game</button>
                             <div className="relative flex py-2 items-center"><div className="flex-grow border-t-2 border-slate-100"></div><span className="mx-4 text-slate-300 font-bold text-sm">OR JOIN</span><div className="flex-grow border-t-2 border-slate-100"></div></div>
                             <div className="flex flex-col gap-3">
-                                <input className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl outline-none font-mono text-sm text-center uppercase" value={hostId} onChange={e=>setHostId(e.target.value)} placeholder="ENTER CODE" />
+                                <label className="block text-left text-xs font-bold text-slate-400">Paste Game ID (Case Sensitive)</label>
+                                {/* Removed 'uppercase' class so users can see exactly what they paste */}
+                                <input className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl outline-none font-mono text-sm" value={hostId} onChange={e=>setHostId(e.target.value)} placeholder="Enter ID exactly" />
                                 {statusMsg && <div className="text-red-500 text-sm font-bold bg-red-50 p-2 rounded-lg">{statusMsg}</div>}
                                 <button onClick={joinGame} disabled={isConnecting} className={`text-white px-6 py-3 rounded-xl font-bold shadow-lg transition ${isConnecting ? 'bg-slate-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'}`}>
                                     {isConnecting ? 'Connecting...' : 'Join Game'}
