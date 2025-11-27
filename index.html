@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EcoPoly: SDG Edition</title>
     
-    <!-- 1. Tailwind CSS for Styling -->
+    <!-- 1. Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- 2. React & ReactDOM -->
@@ -16,84 +15,99 @@
     <!-- 3. PeerJS for P2P Multiplayer -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     
-    <!-- 4. Babel for running JSX in browser without build tools -->
+    <!-- 4. Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'board-bg': '#dcfce7',
+                        'tile-bg': '#ffffff',
+                    },
+                    boxShadow: {
+                        'tile': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        'inner-strong': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.25)',
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f0fdf4; }
-        .perspective-board { transform: rotateX(20deg) scale(0.95); transition: transform 0.5s; }
-        .tile-shadow { box-shadow: inset 0 0 20px rgba(0,0,0,0.05); }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Fredoka:wght@500;700&display=swap');
         
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f0fdf4; 
+            overflow: hidden; /* Prevent scrolling on mobile during game */
+        }
+        
+        h1, h2, h3, .brand-font { font-family: 'Fredoka', sans-serif; }
+
+        /* Animation utilities */
+        .animate-pop { animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes pop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Pattern Background for Center */
+        .pattern-bg {
+            background-color: #ffffff;
+            opacity: 0.8;
+            background-image:  linear-gradient(135deg, #f0fdf4 25%, transparent 25%), linear-gradient(225deg, #f0fdf4 25%, transparent 25%), linear-gradient(45deg, #f0fdf4 25%, transparent 25%), linear-gradient(315deg, #f0fdf4 25%, #ffffff 25%);
+            background-position:  10px 0, 10px 0, 0 0, 0 0;
+            background-size: 20px 20px;
+            background-repeat: repeat;
+        }
+
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "peerjs": "https://aistudiocdn.com/peerjs@^1.5.5",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0"
-  }
-}
-</script>
 </head>
 <body>
     <div id="root"></div>
 
-    <!-- MAIN GAME SCRIPT (JSX) -->
     <script type="text/babel">
-        const { useState, useEffect, useReducer, useRef, useMemo } = React;
+        const { useState, useEffect, useReducer, useRef } = React;
 
-        // --- ICONS (SVG Components) ---
-        const IconDice = ({ val }) => {
-            const dots = {
-                1: [[50,50]],
-                2: [[25,25], [75,75]],
-                3: [[25,25], [50,50], [75,75]],
-                4: [[25,25], [25,75], [75,25], [75,75]],
-                5: [[25,25], [25,75], [50,50], [75,25], [75,75]],
-                6: [[25,25], [25,50], [25,75], [75,25], [75,50], [75,75]]
-            };
-            return (
-                <svg width="40" height="40" viewBox="0 0 100 100" className="bg-white rounded-lg border-2 border-slate-800 shadow-md">
-                    {dots[val]?.map(([cx, cy], i) => (
-                        <circle key={i} cx={cx} cy={cy} r="10" fill="#333" />
-                    ))}
-                </svg>
-            );
+        // --- 1. CONSTANTS & DATA ---
+        const TileType = {
+            PROPERTY: 'PROPERTY',
+            START: 'START',
+            CHANCE: 'CHANCE',
+            JAIL: 'JAIL',
+            TAX: 'TAX',
+            PARKING: 'PARKING'
         };
-        const IconUsers = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
-        const IconCopy = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>;
 
-        // --- CONSTANTS & DATA ---
-        const PLAYER_COLORS = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b'];
-        
-        const TILES = [
-            { id: 0, name: 'GO', type: 'START', description: 'Collect $200' },
-            { id: 1, name: 'Solar Field', type: 'PROPERTY', price: 60, rent: 2, group: 'brown' },
-            { id: 2, name: 'Community Chest', type: 'CHANCE' },
-            { id: 3, name: 'Wind Farm', type: 'PROPERTY', price: 60, rent: 4, group: 'brown' },
-            { id: 4, name: 'Carbon Tax', type: 'TAX', price: 100, description: 'Pay $100' },
-            { id: 5, name: 'Hydro Plant', type: 'PROPERTY', price: 100, rent: 6, group: 'light_blue' },
-            { id: 6, name: 'Recycling Ctr', type: 'PROPERTY', price: 100, rent: 6, group: 'light_blue' },
-            { id: 7, name: 'Bio Lab', type: 'PROPERTY', price: 120, rent: 8, group: 'light_blue' },
-            { id: 8, name: 'Eco Prison', type: 'JAIL', description: 'Just Visiting' },
-            { id: 9, name: 'Urban Garden', type: 'PROPERTY', price: 140, rent: 10, group: 'pink' },
-            { id: 10, name: 'Green School', type: 'PROPERTY', price: 140, rent: 10, group: 'pink' },
-            { id: 11, name: 'Eco University', type: 'PROPERTY', price: 160, rent: 12, group: 'pink' },
-            { id: 12, name: 'Public Park', type: 'PARKING', description: 'Free Resting' },
-            { id: 13, name: 'Electric Bus', type: 'PROPERTY', price: 180, rent: 14, group: 'orange' },
-            { id: 14, name: 'Chance', type: 'CHANCE' },
-            { id: 15, name: 'Metro Line', type: 'PROPERTY', price: 200, rent: 16, group: 'orange' },
-            { id: 16, name: 'Forest Reserve', type: 'PROPERTY', price: 220, rent: 18, group: 'red' },
-            { id: 17, name: 'Ocean Cleanup', type: 'PROPERTY', price: 220, rent: 18, group: 'red' },
-            { id: 18, name: 'Clean Water', type: 'PROPERTY', price: 240, rent: 20, group: 'red' },
-            { id: 19, name: 'Global Summit', type: 'PROPERTY', price: 350, rent: 35, group: 'blue' },
+        const INITIAL_TILES = [
+            { id: 0, name: 'GO', type: TileType.START, description: 'Collect $200' },
+            { id: 1, name: 'Solar Field', type: TileType.PROPERTY, price: 60, rent: 2, group: 'brown' },
+            { id: 2, name: 'Community Chest', type: TileType.CHANCE },
+            { id: 3, name: 'Wind Farm', type: TileType.PROPERTY, price: 60, rent: 4, group: 'brown' },
+            { id: 4, name: 'Carbon Tax', type: TileType.TAX, price: 100, description: 'Pay $100' },
+            { id: 5, name: 'Hydro Plant', type: TileType.PROPERTY, price: 100, rent: 6, group: 'light_blue' },
+            { id: 6, name: 'Recycling Ctr', type: TileType.PROPERTY, price: 100, rent: 6, group: 'light_blue' },
+            { id: 7, name: 'Bio Lab', type: TileType.PROPERTY, price: 120, rent: 8, group: 'light_blue' },
+            { id: 8, name: 'Eco Prison', type: TileType.JAIL, description: 'Just Visiting' },
+            { id: 9, name: 'Urban Garden', type: TileType.PROPERTY, price: 140, rent: 10, group: 'pink' },
+            { id: 10, name: 'Green School', type: TileType.PROPERTY, price: 140, rent: 10, group: 'pink' },
+            { id: 11, name: 'Eco University', type: TileType.PROPERTY, price: 160, rent: 12, group: 'pink' },
+            { id: 12, name: 'Public Park', type: TileType.PARKING, description: 'Free Resting' },
+            { id: 13, name: 'Electric Bus', type: TileType.PROPERTY, price: 180, rent: 14, group: 'orange' },
+            { id: 14, name: 'Chance', type: TileType.CHANCE },
+            { id: 15, name: 'Metro Line', type: TileType.PROPERTY, price: 200, rent: 16, group: 'orange' },
+            { id: 16, name: 'Forest Reserve', type: TileType.PROPERTY, price: 220, rent: 18, group: 'red' },
+            { id: 17, name: 'Ocean Cleanup', type: TileType.PROPERTY, price: 220, rent: 18, group: 'red' },
+            { id: 18, name: 'Clean Water', type: TileType.PROPERTY, price: 240, rent: 20, group: 'red' },
+            { id: 19, name: 'Global Summit', type: TileType.PROPERTY, price: 350, rent: 35, group: 'blue' },
         ];
 
         const SDG_QUESTIONS = [
@@ -102,13 +116,41 @@
             { id: 3, question: "Which goal promotes inclusive and equitable quality education?", options: ["Goal 3", "Goal 4", "Goal 8", "Goal 9"], correctIndex: 1 },
             { id: 4, question: "SDG 7 focuses on affordable and clean...?", options: ["Water", "Energy", "Air", "Food"], correctIndex: 1 },
             { id: 5, question: "Which goal aims to conserve and sustainably use the oceans?", options: ["Goal 15: Life on Land", "Goal 6: Clean Water", "Goal 14: Life Below Water", "Goal 12: Responsible Consumption"], correctIndex: 2 },
+            { id: 6, question: "Which SDG aims to achieve gender equality?", options: ["Goal 10", "Goal 1", "Goal 5", "Goal 16"], correctIndex: 2 },
+            { id: 7, question: "Goal 11 focuses on making cities...?", options: ["Rich and exclusive", "Inclusive, safe, resilient and sustainable", "Big and industrial", "Car-centric"], correctIndex: 1 },
         ];
 
-        // --- GAME LOGIC (REDUCER) ---
+        const PLAYER_COLORS = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b'];
+
+        // --- 2. ICONS ---
+        const Icons = {
+            Dice: ({ val }) => {
+                const dots = {
+                    1: [[50,50]],
+                    2: [[25,25], [75,75]],
+                    3: [[25,25], [50,50], [75,75]],
+                    4: [[25,25], [25,75], [75,25], [75,75]],
+                    5: [[25,25], [25,75], [50,50], [75,25], [75,75]],
+                    6: [[25,25], [25,50], [25,75], [75,25], [75,50], [75,75]]
+                };
+                return (
+                    <svg width="48" height="48" viewBox="0 0 100 100" className="bg-white rounded-xl border-2 border-slate-800 shadow-[2px_2px_0px_rgba(0,0,0,0.8)]">
+                        {dots[val]?.map(([cx, cy], i) => <circle key={i} cx={cx} cy={cy} r="10" fill="#1e293b" />)}
+                    </svg>
+                );
+            },
+            User: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+            Copy: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>,
+            Alert: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+            Money: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
+            House: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+        };
+
+        // --- 3. GAME LOGIC (REDUCER) ---
         const initialState = {
             players: [],
             currentPlayerIndex: 0,
-            tiles: TILES,
+            tiles: INITIAL_TILES,
             gameStatus: 'LOBBY',
             logs: ['Welcome to EcoPoly! Create or join a game.'],
             dice: [1, 1],
@@ -123,7 +165,7 @@
                     return {
                         ...state,
                         players: [...state.players, newPlayer],
-                        logs: [`${newPlayer.name} joined the game.`, ...state.logs],
+                        logs: [`${newPlayer.name} joined.`, ...state.logs],
                     };
                 }
                 case 'RESET_GAME': {
@@ -133,7 +175,7 @@
                         players: state.players.map(p => ({
                             ...p, money: 1500, position: 0, isJailed: false, properties: []
                         })),
-                        logs: ['Game started!'],
+                        logs: ['Game started! Player 1 turn.'],
                     };
                 }
                 case 'SYNC_STATE': return action.payload;
@@ -146,20 +188,18 @@
                     let newLogs = [...state.logs];
                     let money = player.money;
                     
-                    // Simple Move Logic
                     let newPos = (player.position + total) % 20;
                     if (newPos < player.position) {
                         money += 200;
                         newLogs.unshift(`${player.name} passed GO! +$200`);
                     }
 
-                    // Simple Effects
                     const landedTile = state.tiles[newPos];
-                    if (landedTile.type === 'TAX') {
+                    if (landedTile.type === TileType.TAX) {
                         money -= landedTile.price;
                         newLogs.unshift(`${player.name} paid Tax $${landedTile.price}`);
                     }
-                    if (landedTile.type === 'CHANCE') {
+                    if (landedTile.type === TileType.CHANCE) {
                         if (Math.random() > 0.5) { money += 50; newLogs.unshift("Chance: Grant +$50"); }
                         else { money -= 30; newLogs.unshift("Chance: Fine -$30"); }
                     }
@@ -168,7 +208,7 @@
                         ...state,
                         dice: [d1, d2],
                         players: state.players.map((p, i) => i === pIndex ? { ...p, position: newPos, money } : p),
-                        logs: [`${player.name} rolled ${total}.`, ...newLogs]
+                        logs: [`${player.name} rolled ${total} (to ${state.tiles[newPos].name}).`, ...newLogs]
                     };
                 }
                 case 'BUY_PROPERTY': {
@@ -190,6 +230,7 @@
                     const payer = state.players[state.currentPlayerIndex];
                     const receiver = state.players.find(p => p.peerId === to);
                     
+                    // Basic Bankruptcy check
                     if (payer.money < amount) {
                         return { ...state, gameStatus: 'GAME_OVER', winner: receiver.name, logs: [`${payer.name} bankrupt!`, ...state.logs] };
                     }
@@ -201,7 +242,7 @@
                             if (p.peerId === to) return { ...p, money: p.money + amount };
                             return p;
                         }),
-                        logs: [`${payer.name} paid rent $${amount}.`, ...state.logs]
+                        logs: [`${payer.name} paid rent $${amount} to ${receiver.name}.`, ...state.logs]
                     };
                 }
                 case 'END_TURN':
@@ -210,39 +251,134 @@
             }
         };
 
-        // --- COMPONENTS ---
+        // --- 4. COMPONENTS ---
+
+        const ModalManager = ({ modal, onClose, onAction }) => {
+            if (!modal) return null;
+
+            return (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-pop">
+                    <div className="bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] max-w-md w-full overflow-hidden border-4 border-slate-800">
+                        
+                        {/* HEADER */}
+                        <div className={`${modal.type === 'QUIZ' ? 'bg-blue-600' : modal.type === 'RENT' ? 'bg-red-500' : 'bg-green-600'} p-4 text-white flex items-center justify-center gap-2 relative`}>
+                            {modal.type === 'QUIZ' && <span className="text-2xl">🌍</span>}
+                            {modal.type === 'RENT' && <span className="text-2xl">💸</span>}
+                            {modal.type === 'BUY' && <span className="text-2xl">🏠</span>}
+                            {modal.type === 'ALERT' && <span className="text-2xl">⚠️</span>}
+                            <h3 className="font-bold text-xl brand-font tracking-wide">
+                                {modal.title || 'Notification'}
+                            </h3>
+                        </div>
+
+                        {/* BODY */}
+                        <div className="p-6 text-center">
+                            {modal.content && <p className="text-lg text-slate-700 font-medium mb-6">{modal.content}</p>}
+
+                            {/* QUIZ UI */}
+                            {modal.type === 'QUIZ' && (
+                                <div className="grid gap-3">
+                                    <p className="text-lg font-bold mb-2">{modal.question}</p>
+                                    {modal.options.map((opt, i) => (
+                                        <button key={i} onClick={() => onAction('ANSWER', i)} 
+                                            className="text-left p-3 border-2 border-slate-200 rounded-xl hover:bg-blue-50 hover:border-blue-500 transition font-medium text-slate-700 active:scale-98">
+                                            {opt}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* BUY UI */}
+                            {modal.type === 'BUY' && (
+                                <div className="flex gap-4">
+                                    <button onClick={() => onAction('CONFIRM_BUY')} className="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-green-700 transition active:scale-95 border-b-4 border-green-800">
+                                        Yes, Buy it!
+                                    </button>
+                                    <button onClick={onClose} className="flex-1 bg-slate-200 text-slate-700 py-3 rounded-xl font-bold hover:bg-slate-300 transition active:scale-95 border-b-4 border-slate-300">
+                                        No, Pass
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* RENT UI */}
+                            {modal.type === 'RENT' && (
+                                <button onClick={() => onAction('PAY_RENT')} className="w-full bg-red-500 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-red-600 transition active:scale-95 border-b-4 border-red-800">
+                                    Pay Rent ${modal.amount}
+                                </button>
+                            )}
+
+                            {/* ALERT UI */}
+                            {modal.type === 'ALERT' && (
+                                <button onClick={onClose} className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-slate-900 transition active:scale-95">
+                                    Okay
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
 
         const BoardTile = ({ tile, players, isCorner }) => {
             const getGroupColor = (g) => {
-                if(g==='brown') return 'bg-amber-800';
-                if(g==='light_blue') return 'bg-sky-400';
-                if(g==='pink') return 'bg-pink-500';
-                if(g==='orange') return 'bg-orange-500';
-                if(g==='red') return 'bg-red-600';
-                if(g==='blue') return 'bg-blue-800';
+                if(g==='brown') return 'bg-[#8B4513]';
+                if(g==='light_blue') return 'bg-[#87CEEB]';
+                if(g==='pink') return 'bg-[#FF69B4]';
+                if(g==='orange') return 'bg-[#FFA500]';
+                if(g==='red') return 'bg-[#FF0000]';
+                if(g==='blue') return 'bg-[#0000FF]';
                 return 'bg-slate-200';
             };
             
             const owner = players.find(p => p.peerId === tile.ownerId);
 
+            // Styling logic
+            const isProp = tile.type === TileType.PROPERTY;
+            
             return (
-                <div className={`relative flex flex-col items-center justify-between border border-slate-300 bg-white text-[10px] md:text-xs select-none tile-shadow
-                    ${isCorner ? 'aspect-square' : 'aspect-[3/4] md:aspect-[3/5]'} 
-                    ${tile.type === 'START' ? 'bg-green-100' : ''}`}>
+                <div className={`relative flex flex-col items-center justify-between bg-[#f8fafc] text-[10px] md:text-xs select-none 
+                    ${isCorner ? 'aspect-square border-2 border-slate-800 rounded-lg' : 'aspect-[3/5] md:aspect-[2/3] border border-slate-400'} 
+                    shadow-tile transition-all
+                    ${tile.type === TileType.START ? 'bg-emerald-100' : ''}
+                `}>
                     
-                    {tile.group && <div className={`w-full h-[20%] ${getGroupColor(tile.group)} border-b border-slate-300`}></div>}
+                    {/* Property Color Header */}
+                    {tile.group && (
+                        <div className={`w-full h-[22%] ${getGroupColor(tile.group)} border-b-2 border-slate-800 flex items-end justify-center`}>
+                        </div>
+                    )}
                     
-                    <div className="flex-1 flex flex-col justify-center items-center p-1 text-center w-full">
-                        <span className="font-bold leading-tight">{tile.name}</span>
-                        {tile.price && !owner && <span className="text-slate-500">${tile.price}</span>}
-                        {owner && <div className="mt-1 px-1 py-0.5 rounded text-white text-[9px]" style={{backgroundColor: owner.color}}>Owner: {owner.name.substring(0,6)}</div>}
-                        {tile.type === 'CHANCE' && <span className="text-2xl">❓</span>}
+                    {/* Content */}
+                    <div className="flex-1 flex flex-col justify-center items-center p-1 text-center w-full relative">
+                        {isCorner && <div className="absolute inset-0 bg-black/5 opacity-50 z-0 rounded-lg"></div>}
+                        
+                        <span className={`font-bold leading-tight z-10 ${isCorner ? 'text-sm md:text-base -rotate-45' : ''}`}>{tile.name}</span>
+                        
+                        {/* Price Tag or Icon */}
+                        {isProp && !owner && <span className="mt-1 text-slate-600 font-mono font-semibold">${tile.price}</span>}
+                        
+                        {tile.type === TileType.CHANCE && <span className="text-3xl mt-1">❓</span>}
+                        {tile.type === TileType.PARKING && <span className="text-3xl mt-1">🅿️</span>}
+                        {tile.type === TileType.JAIL && <span className="text-3xl mt-1">⛓️</span>}
+                        {tile.type === TileType.START && <span className="text-3xl mt-1 -rotate-45">🏁</span>}
+                        {tile.type === TileType.TAX && <span className="text-3xl mt-1">🧾</span>}
                     </div>
 
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="flex flex-wrap gap-1 justify-center">
+                    {/* Owner Strip */}
+                    {owner && (
+                        <div className="w-full py-1 text-white text-[9px] font-bold text-center uppercase tracking-wider" 
+                             style={{backgroundColor: owner.color}}>
+                            {owner.name.substring(0,8)}
+                        </div>
+                    )}
+
+                    {/* Players Tokens */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                        <div className="flex flex-wrap gap-1 justify-center max-w-[80%]">
                             {players.filter(p => p.position === tile.id).map(p => (
-                                <div key={p.peerId} className="w-4 h-4 rounded-full border-2 border-white shadow-md z-10" style={{backgroundColor: p.color}} title={p.name} />
+                                <div key={p.peerId} className="w-5 h-5 md:w-6 md:h-6 rounded-full border-2 border-white shadow-[0_2px_4px_rgba(0,0,0,0.5)] transform -translate-y-2 transition-transform duration-300" 
+                                     style={{backgroundColor: p.color, boxShadow: `0 0 0 2px ${p.color}80`}} 
+                                     title={p.name} />
                             ))}
                         </div>
                     </div>
@@ -257,109 +393,185 @@
             const [peerId, setPeerId] = useState('');
             const [hostId, setHostId] = useState('');
             const [myId, setMyId] = useState('');
-            const [userName, setUserName] = useState('Player ' + Math.floor(Math.random() * 100));
+            const [userName, setUserName] = useState('Player ' + Math.floor(Math.random() * 999));
             const [isHost, setIsHost] = useState(false);
+            const [isLoading, setIsLoading] = useState(false);
+            const [joinError, setJoinError] = useState('');
             
             // Modal State
-            const [modalQ, setModalQ] = useState(null);
-            const [tileToBuy, setTileToBuy] = useState(null);
+            const [activeModal, setActiveModal] = useState(null); // { type: 'QUIZ'|'BUY'|'RENT'|'ALERT', ...data }
+            const [pendingTileId, setPendingTileId] = useState(null); // For buying flow
 
             const peerRef = useRef(null);
             const connRef = useRef([]);
 
             // Init Peer
             useEffect(() => {
-                const peer = new Peer();
+                const peer = new Peer(undefined, {
+                    debug: 2 // Errors will be printed
+                });
+                
                 peer.on('open', (id) => {
                     setMyId(id);
                     console.log('My ID:', id);
                 });
+
                 peer.on('connection', (conn) => {
                     conn.on('data', (data) => {
-                        // Host Logic: receive action, dispatch, then sync
-                        if (data.type) {
-                            dispatch(data); 
-                            // *Ideally* we broadcast new state here, but for simplicity in this 
-                            // hacky architecture, we rely on the host's useEffect [gameState] to broadcast.
-                        }
+                        if (data.type) dispatch(data); 
                     });
-                    connRef.current.push(conn);
+                    conn.on('open', () => {
+                        console.log("Peer Connected!");
+                        connRef.current.push(conn);
+                        // Trigger a sync immediately for the new joiner
+                        conn.send({ type: 'SYNC_STATE', payload: gameState });
+                    });
                 });
+
+                peer.on('error', (err) => {
+                    console.error("Peer Error:", err);
+                    setIsLoading(false);
+                    setJoinError("Connection failed. Check ID or try again.");
+                });
+
                 peerRef.current = peer;
                 return () => peer.destroy();
-            }, []);
+            }, []); // Run once on mount
 
-            // Host Broadcast
+            // Sync State for Host
             useEffect(() => {
                 if (isHost && connRef.current.length > 0) {
-                    connRef.current.forEach(conn => conn.send({ type: 'SYNC_STATE', payload: gameState }));
+                    connRef.current.forEach(conn => {
+                        if(conn.open) conn.send({ type: 'SYNC_STATE', payload: gameState });
+                    });
                 }
             }, [gameState, isHost]);
 
             // Handlers
             const createGame = () => {
+                if(!myId) return;
                 setIsHost(true);
                 setPeerId(myId);
-                dispatch({ type: 'JOIN_GAME', payload: { peerId: myId, name: userName, money: 1500, position: 0, isJailed: false, properties: [] } });
+                const player = { peerId: myId, name: userName, money: 1500, position: 0, isJailed: false, properties: [] };
+                dispatch({ type: 'JOIN_GAME', payload: player });
                 dispatch({ type: 'RESET_GAME' });
             };
 
             const joinGame = () => {
-                if (!hostId) return alert("Enter Game ID");
-                const conn = peerRef.current.connect(hostId);
+                if (!hostId.trim()) {
+                    setJoinError("Please enter a Game ID");
+                    return;
+                }
+                setJoinError("");
+                setIsLoading(true);
+
+                if(!peerRef.current) return;
+
+                const conn = peerRef.current.connect(hostId.trim());
+                
                 conn.on('open', () => {
-                    setPeerId(hostId);
+                    console.log("Connected to Host!");
+                    setPeerId(hostId.trim());
+                    setIsLoading(false);
                     const player = { peerId: myId, name: userName, money: 1500, position: 0, isJailed: false, properties: [] };
                     conn.send({ type: 'JOIN_GAME', payload: player });
-                    connRef.current = [conn]; // Client stores host conn here
+                    connRef.current = [conn]; 
                 });
+
+                conn.on('error', (err) => {
+                    console.error("Conn Error:", err);
+                    setIsLoading(false);
+                    setJoinError("Could not connect to host.");
+                });
+
                 conn.on('data', (data) => {
                     if (data.type === 'SYNC_STATE') dispatch({ type: 'SYNC_STATE', payload: data.payload });
                 });
+
+                // Safety timeout
+                setTimeout(() => {
+                    if(isLoading && !peerId) {
+                        setIsLoading(false);
+                        setJoinError("Connection timed out.");
+                    }
+                }, 10000);
             };
 
             const sendAction = (action) => {
                 if (isHost) dispatch(action);
-                else connRef.current[0].send(action);
+                else if (connRef.current[0] && connRef.current[0].open) connRef.current[0].send(action);
             };
 
-            // Gameplay Flow
+            // Gameplay Flow Triggers
             const myPlayer = gameState.players.find(p => p.peerId === myId);
             const isMyTurn = myPlayer && gameState.players[gameState.currentPlayerIndex]?.peerId === myId;
             const prevPos = useRef(0);
 
             useEffect(() => {
                 if (!myPlayer) return;
+                
+                // Detect movement to trigger tile events
                 if (myPlayer.position !== prevPos.current) {
                     const tile = gameState.tiles[myPlayer.position];
+                    
                     if (isMyTurn) {
-                        if (tile.type === 'PROPERTY' && !tile.ownerId) {
-                            setModalQ(SDG_QUESTIONS[Math.floor(Math.random()*SDG_QUESTIONS.length)]);
-                            setTileToBuy(tile.id);
-                        } else if (tile.type === 'PROPERTY' && tile.ownerId && tile.ownerId !== myId) {
+                        // 1. Landing on Buyable Property
+                        if (tile.type === TileType.PROPERTY && !tile.ownerId) {
+                            // Delay slightly for visual movement
                             setTimeout(() => {
-                                alert(`Pay Rent $${tile.rent}`);
-                                sendAction({ type: 'PAY_RENT', payload: { amount: tile.rent, to: tile.ownerId } });
-                            }, 500);
+                                const q = SDG_QUESTIONS[Math.floor(Math.random()*SDG_QUESTIONS.length)];
+                                setPendingTileId(tile.id);
+                                setActiveModal({ type: 'QUIZ', ...q, title: 'Eco Knowledge Check' });
+                            }, 600);
+                        } 
+                        // 2. Landing on Owned Property (Rent)
+                        else if (tile.type === TileType.PROPERTY && tile.ownerId && tile.ownerId !== myId) {
+                            setTimeout(() => {
+                                setActiveModal({ 
+                                    type: 'RENT', 
+                                    title: 'Pay Rent', 
+                                    content: `You landed on ${tile.name}. Owner demands payment.`,
+                                    amount: tile.rent,
+                                    ownerId: tile.ownerId 
+                                });
+                            }, 600);
                         }
                     }
                     prevPos.current = myPlayer.position;
                 }
-            }, [myPlayer?.position, isMyTurn]);
+            }, [myPlayer?.position, isMyTurn, gameState.tiles]);
 
-            const handleAnswer = (idx) => {
-                if (idx === modalQ.correctIndex) {
-                    if (confirm(`Correct! Buy for $${gameState.tiles[tileToBuy].price}?`)) {
-                        sendAction({ type: 'BUY_PROPERTY', payload: { tileId: tileToBuy } });
+            // Modal Actions
+            const handleModalAction = (actionType, data) => {
+                if (actionType === 'ANSWER') {
+                    // Quiz Logic
+                    if (data === activeModal.correctIndex) {
+                        // Correct -> Show Buy Modal
+                        const tile = gameState.tiles[pendingTileId];
+                        setActiveModal({ 
+                            type: 'BUY', 
+                            title: 'Property Available', 
+                            content: `Correct! You can purchase ${tile.name} for $${tile.price}.` 
+                        });
+                    } else {
+                        // Wrong
+                        setActiveModal({ 
+                            type: 'ALERT', 
+                            title: 'Wrong Answer', 
+                            content: 'You missed the question. You cannot buy this property.' 
+                        });
                     }
-                } else {
-                    alert("Wrong answer!");
+                } else if (actionType === 'CONFIRM_BUY') {
+                    sendAction({ type: 'BUY_PROPERTY', payload: { tileId: pendingTileId } });
+                    setActiveModal(null);
+                } else if (actionType === 'PAY_RENT') {
+                    sendAction({ type: 'PAY_RENT', payload: { amount: activeModal.amount, to: activeModal.ownerId } });
+                    setActiveModal(null);
                 }
-                setModalQ(null);
             };
 
-            // --- RENDER ---
-            
+            const closeModal = () => setActiveModal(null);
+
             // Grid Styles mapping (0-19)
             const getGridStyle = (idx) => {
                 if (idx === 0) return { gridRow: 6, gridColumn: 6 };
@@ -372,81 +584,150 @@
                 return { gridRow: 1 + (idx - 15), gridColumn: 6 };
             };
 
-            // 1. Lobby View
+            // --- 5. RENDER VIEWS ---
+            
+            // Lobby View
             if (gameState.gameStatus === 'LOBBY' || (gameState.gameStatus === 'PLAYING' && !peerId)) {
                 return (
-                    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-green-400 to-blue-500">
-                        <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full text-center space-y-6">
-                            <h1 className="text-4xl font-extrabold text-slate-800">EcoPoly 🌍</h1>
-                            <p className="text-slate-500">No Install • Multiplayer</p>
-                            <input className="w-full px-4 py-2 border rounded" value={userName} onChange={e=>setUserName(e.target.value)} placeholder="Name" />
-                            <button onClick={createGame} className="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700">Create Game</button>
-                            <div className="flex gap-2">
-                                <input className="flex-1 px-4 py-2 border rounded" value={hostId} onChange={e=>setHostId(e.target.value)} placeholder="Paste Game ID" />
-                                <button onClick={joinGame} className="bg-blue-600 text-white px-6 py-2 rounded font-bold">Join</button>
+                    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-[#dcfce7] to-[#dbeafe] font-sans">
+                        <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center space-y-6 border-4 border-slate-800">
+                            <div>
+                                <h1 className="text-5xl font-black text-green-600 tracking-tighter brand-font mb-2">EcoPoly 🌍</h1>
+                                <p className="text-slate-500 font-medium">Sustainable Development Goals Edition</p>
                             </div>
+                            
+                            <div className="space-y-4">
+                                <label className="block text-left text-sm font-bold text-slate-700">Display Name</label>
+                                <input className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-green-500 focus:ring-4 focus:ring-green-500/20 outline-none font-bold text-slate-700" 
+                                    value={userName} onChange={e=>setUserName(e.target.value)} placeholder="Your Name" />
+                            </div>
+
+                            <button onClick={createGame} className="w-full bg-green-500 text-white py-4 rounded-xl font-bold text-lg shadow-[0_4px_0_#15803d] hover:bg-green-600 hover:shadow-[0_2px_0_#15803d] hover:translate-y-[2px] transition-all">
+                                Create New Game
+                            </button>
+                            
+                            <div className="relative flex py-2 items-center"><div className="flex-grow border-t-2 border-slate-100"></div><span className="flex-shrink-0 mx-4 text-slate-300 font-bold text-sm">OR JOIN</span><div className="flex-grow border-t-2 border-slate-100"></div></div>
+                            
+                            <div className="flex flex-col gap-3">
+                                <input className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl outline-none font-mono text-sm" 
+                                    value={hostId} onChange={e=>setHostId(e.target.value)} placeholder="Paste Invite Code Here" />
+                                
+                                {joinError && <div className="text-red-500 text-sm font-bold bg-red-50 p-2 rounded-lg">{joinError}</div>}
+                                
+                                <button onClick={joinGame} disabled={isLoading} 
+                                    className={`bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-[0_4px_0_#1d4ed8] hover:translate-y-[2px] hover:shadow-[0_2px_0_#1d4ed8] transition-all ${isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-600'}`}>
+                                    {isLoading ? 'Connecting...' : 'Join Game'}
+                                </button>
+                            </div>
+                            {!myId && <p className="text-xs text-slate-400">Initializing Network...</p>}
                         </div>
                     </div>
                 );
             }
 
-            // 2. Game View
+            // Game View
             return (
-                <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
+                <div className="min-h-screen flex flex-col md:flex-row bg-slate-100 font-sans overflow-hidden">
                     {/* Sidebar */}
-                    <div className="w-full md:w-72 bg-white border-r p-4 flex flex-col gap-4 h-[30vh] md:h-screen overflow-y-auto">
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm">
-                            <p className="font-bold text-blue-800 mb-1">Invite ID:</p>
-                            <div className="flex gap-2 items-center">
-                                <code className="bg-white px-2 py-1 rounded border text-xs flex-1 truncate">{peerId}</code>
-                                <button onClick={() => navigator.clipboard.writeText(peerId)}><IconCopy/></button>
-                            </div>
+                    <div className="w-full md:w-80 bg-white border-r-2 border-slate-200 flex flex-col z-20 shadow-lg">
+                        
+                        {/* Header info */}
+                        <div className="p-4 bg-slate-50 border-b-2 border-slate-200">
+                             <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-xl font-black text-green-700 brand-font">EcoPoly</h2>
+                                <div className="text-xs font-bold text-slate-400">P2P v1.0</div>
+                             </div>
+                             
+                             <div className="p-3 bg-white border-2 border-dashed border-slate-300 rounded-xl">
+                                <p className="text-xs font-bold text-slate-500 mb-1 uppercase tracking-wide">Invite Code</p>
+                                <div className="flex gap-2 items-center">
+                                    <code className="flex-1 truncate text-xs font-mono bg-slate-100 p-1 rounded">{peerId}</code>
+                                    <button onClick={() => { navigator.clipboard.writeText(peerId); alert("Copied!"); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Icons.Copy/></button>
+                                </div>
+                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <h2 className="font-bold flex items-center gap-2"><IconUsers/> Players</h2>
+
+                        {/* Players List */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+                            <h3 className="font-bold text-slate-400 text-xs uppercase tracking-wider flex items-center gap-2"><Icons.User/> Players</h3>
                             {gameState.players.map((p, i) => (
-                                <div key={p.peerId} className={`flex justify-between p-2 rounded border ${gameState.currentPlayerIndex === i ? 'border-green-500 bg-green-50' : ''}`}>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full" style={{backgroundColor: p.color}}></div>
-                                        <span className="text-sm font-semibold">{p.name}</span>
+                                <div key={p.peerId} className={`relative flex justify-between items-center p-3 rounded-xl border-2 transition-all ${gameState.currentPlayerIndex === i ? 'border-green-500 bg-green-50 shadow-sm scale-[1.02]' : 'border-slate-100 bg-white'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full shadow-inner flex items-center justify-center text-white font-bold text-xs" style={{backgroundColor: p.color}}>
+                                            {p.name[0]}
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold text-slate-700 leading-tight">{p.name}</span>
+                                            {gameState.currentPlayerIndex === i && <span className="text-[10px] text-green-600 font-bold uppercase">Current Turn</span>}
+                                        </div>
                                     </div>
-                                    <span className="font-mono text-green-700 font-bold">${p.money}</span>
+                                    <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-100">
+                                        <Icons.Money/>
+                                        <span className="font-mono text-slate-800 font-bold">{p.money}</span>
+                                    </div>
                                 </div>
                             ))}
                         </div>
-                        <div className="flex-1 bg-slate-100 rounded p-2 text-xs font-mono overflow-y-auto max-h-40 md:max-h-full">
-                            {gameState.logs.map((l,i) => <div key={i} className="border-b pb-1 mb-1 border-slate-200">{l}</div>)}
+
+                        {/* Logs */}
+                        <div className="h-40 bg-slate-900 text-slate-300 p-3 text-xs font-mono overflow-y-auto border-t-4 border-slate-800">
+                            {gameState.logs.map((l,i) => <div key={i} className="mb-1 opacity-80">> {l}</div>)}
                         </div>
                     </div>
 
-                    {/* Board */}
-                    <div className="flex-1 bg-green-100 flex items-center justify-center p-2 md:p-8">
-                        <div className="relative w-full max-w-[650px] aspect-square bg-white shadow-2xl rounded-xl border-4 border-slate-800 p-1">
-                            <div className="grid grid-cols-6 grid-rows-6 gap-1 w-full h-full bg-slate-100">
-                                {/* Center Area */}
-                                <div className="col-start-2 col-end-6 row-start-2 row-end-6 bg-white flex flex-col items-center justify-center p-4">
-                                    <h1 className="text-4xl font-black text-green-600/20 rotate-[-12deg] mb-6 select-none">EcoPoly</h1>
-                                    <div className="flex gap-4 mb-6">
-                                        <IconDice val={gameState.dice[0]} />
-                                        <IconDice val={gameState.dice[1]} />
-                                    </div>
-                                    <div className="text-center mb-4">
-                                        <div className="text-xs uppercase text-slate-500 font-bold">Current Turn</div>
-                                        <div className="text-xl font-bold" style={{color: gameState.players[gameState.currentPlayerIndex]?.color}}>
-                                            {gameState.players[gameState.currentPlayerIndex]?.name}
+                    {/* Board Area */}
+                    <div className="flex-1 bg-board-bg flex items-center justify-center p-2 md:p-8 relative overflow-auto">
+                        
+                        {/* The Board Container */}
+                        <div className="relative w-full max-w-[700px] aspect-square bg-[#e2e8f0] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] rounded-3xl border-8 border-slate-800 p-2 md:p-3">
+                            
+                            {/* Grid */}
+                            <div className="grid grid-cols-6 grid-rows-6 gap-2 w-full h-full">
+                                
+                                {/* Center Hub (Logo area) */}
+                                <div className="col-start-2 col-end-6 row-start-2 row-end-6 bg-white rounded-2xl flex flex-col items-center justify-center p-4 relative overflow-hidden pattern-bg shadow-inner-strong">
+                                    
+                                    <div className="relative z-10 flex flex-col items-center gap-6">
+                                        <div className="text-center">
+                                            <h1 className="text-5xl md:text-7xl font-black text-slate-800 tracking-tighter brand-font rotate-[-5deg]">EcoPoly</h1>
+                                            <span className="bg-green-500 text-white px-3 py-1 text-xs font-bold rounded-full uppercase tracking-widest shadow-md">SDG Edition</span>
+                                        </div>
+
+                                        <div className="bg-white/90 backdrop-blur-sm p-6 rounded-2xl shadow-xl border-2 border-slate-100 w-64 flex flex-col items-center gap-4 transition-all">
+                                            {/* Dice Display */}
+                                            <div className="flex gap-4">
+                                                <Icons.Dice val={gameState.dice[0]} />
+                                                <Icons.Dice val={gameState.dice[1]} />
+                                            </div>
+
+                                            {/* Turn Indicator */}
+                                            <div className="text-center w-full">
+                                                <div className="text-[10px] uppercase text-slate-400 font-bold tracking-widest mb-1">Current Turn</div>
+                                                <div className="text-lg font-black truncate px-2 py-1 rounded" style={{color: gameState.players[gameState.currentPlayerIndex]?.color, backgroundColor: `${gameState.players[gameState.currentPlayerIndex]?.color}15`}}>
+                                                    {gameState.players[gameState.currentPlayerIndex]?.name}
+                                                </div>
+                                            </div>
+
+                                            {/* Controls */}
+                                            {isMyTurn ? (
+                                                <div className="flex gap-2 w-full mt-2">
+                                                    <button onClick={() => sendAction({ type: 'ROLL_DICE' })} className="flex-1 bg-green-500 text-white px-4 py-3 rounded-xl font-bold shadow-[0_4px_0_#15803d] hover:bg-green-600 hover:shadow-[0_2px_0_#15803d] hover:translate-y-[2px] transition-all active:scale-95">
+                                                        Roll
+                                                    </button>
+                                                    <button onClick={() => sendAction({ type: 'END_TURN' })} className="bg-slate-200 text-slate-600 px-4 py-3 rounded-xl font-bold shadow-[0_4px_0_#94a3b8] hover:bg-slate-300 hover:shadow-[0_2px_0_#94a3b8] hover:translate-y-[2px] transition-all active:scale-95">
+                                                        Skip
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="text-slate-400 text-xs font-bold bg-slate-100 px-3 py-2 rounded-full animate-pulse">
+                                                    Waiting for opponent...
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                    {isMyTurn ? (
-                                        <div className="flex gap-2">
-                                            <button onClick={() => sendAction({ type: 'ROLL_DICE' })} className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold hover:scale-105 transition shadow-lg">Roll</button>
-                                            <button onClick={() => sendAction({ type: 'END_TURN' })} className="bg-red-500 text-white px-6 py-2 rounded-lg font-bold hover:scale-105 transition shadow-lg">End Turn</button>
-                                        </div>
-                                    ) : (
-                                        <div className="text-slate-400 italic text-sm animate-pulse">Waiting for opponent...</div>
-                                    )}
                                 </div>
 
-                                {/* Tiles */}
+                                {/* Tiles Renderer */}
                                 {gameState.tiles.map((tile, i) => (
                                     <div key={tile.id} style={getGridStyle(i)} className="w-full h-full">
                                         <BoardTile tile={tile} players={gameState.players} isCorner={[0,5,10,15].includes(i)} />
@@ -456,28 +737,26 @@
                         </div>
                     </div>
 
-                    {/* Modals */}
-                    {modalQ && (
-                        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                            <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden animate-bounce-in">
-                                <div className="bg-green-600 p-4 text-white font-bold">Answer to Buy!</div>
-                                <div className="p-6">
-                                    <p className="text-lg font-medium mb-4">{modalQ.question}</p>
-                                    <div className="grid gap-2">
-                                        {modalQ.options.map((opt, i) => (
-                                            <button key={i} onClick={() => handleAnswer(i)} className="text-left p-3 border rounded hover:bg-green-50 transition">{opt}</button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    {/* Unified Modal Manager */}
+                    <ModalManager 
+                        modal={activeModal} 
+                        onClose={closeModal} 
+                        onAction={handleModalAction} 
+                    />
                     
+                    {/* Game Over Screen */}
                     {gameState.gameStatus === 'GAME_OVER' && (
-                         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center text-white flex-col">
-                            <h1 className="text-6xl font-bold text-green-400 mb-4">Game Over!</h1>
-                            <p className="text-2xl">{gameState.winner} wins!</p>
-                            <button onClick={()=>location.reload()} className="mt-8 bg-white text-black px-6 py-2 rounded font-bold">Restart</button>
+                         <div className="fixed inset-0 bg-slate-900/95 z-[60] flex items-center justify-center text-white flex-col p-4 text-center">
+                            <span className="text-6xl mb-4">🏆</span>
+                            <h1 className="text-5xl md:text-7xl font-black text-green-400 mb-6 brand-font animate-bounce">Game Over!</h1>
+                            <div className="bg-slate-800 p-8 rounded-3xl border-4 border-slate-700 shadow-2xl max-w-lg w-full">
+                                <p className="text-3xl font-bold mb-8">
+                                    <span className="text-green-400">{gameState.winner}</span> is the Eco-Master!
+                                </p>
+                                <button onClick={()=>location.reload()} className="w-full bg-white text-slate-900 px-8 py-4 rounded-xl font-black text-xl hover:bg-green-50 transition transform hover:scale-105 shadow-xl">
+                                    Play Again
+                                </button>
+                            </div>
                          </div>
                     )}
                 </div>
@@ -489,4 +768,3 @@
     </script>
 </body>
 </html>
-    
