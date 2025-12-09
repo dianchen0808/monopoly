@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDGs 永續速決 (後測)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-image: url('back.jpg');
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            /* 改成 fixed */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(5px);
+            z-index: -1;
+        }
+
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            transition: opacity 0.5s ease-out;
+            padding: 20px;
+        }
+
+        .start-modal {
+            background: white;
+            padding: 30px 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            transform-origin: center;
+            transition: transform 0.5s ease-in, opacity 0.5s ease-in;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .start-modal.shrinking {
+            transform: translate(50vw, -50vh) scale(0);
+            opacity: 0;
+        }
+
+        .lang-switch-btn {
+            background: #f0f0f0;
+            color: #555;
+            padding: 8px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-top: 10px;
+            margin-bottom: 5px;
+            /* Adjusted spacing */
+            transition: background 0.2s;
+            border: 1px solid #ddd;
+            display: inline-block;
+        }
+
+        .lang-switch-btn:hover {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .start-modal h2 {
+            font-size: 2em;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .start-modal p {
+            font-size: 1.1em;
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .start-modal p.highlight {
+            font-weight: bold;
+            color: #fa5252;
+        }
+
+        #startGameBtn {
+            background: linear-gradient(135deg, #fcc419 0%, #fab005 100%);
+            color: white;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.2em;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+            margin-top: 10px;
+        }
+
+        #startGameBtn:hover {
+            transform: scale(1.05);
+        }
+
+        #helpIcon {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            font-size: 1.8em;
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .tooltip {
+            visibility: hidden;
+            opacity: 0;
+            width: 200px;
+            background-color: #333;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 10px 15px;
+            position: absolute;
+            z-index: 1;
+            top: 120%;
+            right: 0;
+            transition: opacity 0.3s;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            pointer-events: none;
+        }
+
+        .tooltip::after {
+            content: "";
+            position: absolute;
+            bottom: 100%;
+            right: 15px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: transparent transparent #333 transparent;
+        }
+
+        #helpIcon:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .container {
+            max-width: 400px;
+            width: 100%;
+            position: relative;
+            overflow: visible;
+        }
+
+        .side-hints {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: black;
+            transition: opacity 0.3s;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .score {
+            font-size: 1.2em;
+            opacity: 0.9;
+            color: black;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+
+        .timer-container {
+            width: 100%;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .timer-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #51cf66, #37b24d);
+            border-radius: 15px;
+            transition: width 0.1s linear;
+            box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.3);
+        }
+
+        .timer-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: bold;
+            font-size: 0.9em;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+        }
+
+        .card {
+            position: absolute;
+            width: 100%;
+            height: 80%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            cursor: grab;
+            transition: transform 0.1s;
+            user-select: none;
+        }
+
+        .card.dragging {
+            cursor: grabbing;
+        }
+
+        .card-question {
+            font-size: 1.5em;
+            text-align: center;
+            color: #333;
+            line-height: 1.5;
+        }
+
+        .card-number {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 0.9em;
+            color: #999;
+        }
+
+        .hint {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            z-index: 11;
+        }
+
+        .hint-left {
+            left: 30px;
+        }
+
+        .hint-right {
+            right: 30px;
+        }
+
+        .hint-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85em;
+            color: white;
+            text-align: center;
+        }
+
+        .hint-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            font-weight: bold;
+        }
+
+        .hint-left .hint-icon {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .hint-right .hint-icon {
+            background: #51cf66;
+            color: white;
+        }
+
+        .swipe-indicator {
+            position: absolute;
+            top: 50%;
+            font-size: 4em;
+            font-weight: bold;
+            opacity: 0;
+            transform: translateY(-50%);
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .swipe-left {
+            left: 30px;
+            color: #ff6b6b;
+        }
+
+        .swipe-right {
+            right: 30px;
+            color: #51cf66;
+        }
+
+        .card.showing-left .swipe-left,
+        .card.showing-right .swipe-right {
+            opacity: 1;
+        }
+
+        .result {
+            display: none;
+            text-align: center;
+            color: white;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result h2 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            color: black;
+        }
+
+        .result-rank {
+            font-size: 2em;
+            font-weight: bold;
+            color: #fcc419;
+            margin-bottom: 20px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 統計方塊 Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 15px;
+            color: #333;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .stat-value {
+            font-size: 1.6em;
+            font-weight: 800;
+        }
+
+        .stat-value.score-val {
+            color: #4dabf7;
+        }
+
+        .stat-value.acc-val {
+            color: #51cf66;
+        }
+
+        /* 前後測對比樣式 */
+        .comparison-container {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .comparison-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .comparison-text {
+            font-size: 1.1em;
+            color: #555;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .comparison-text .arrow {
+            color: #888;
+        }
+
+        .comparison-diff {
+            margin-top: 5px;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .comparison-diff.improvement-positive {
+            color: #51cf66;
+        }
+
+        .comparison-diff.improvement-negative {
+            color: #ff6b6b;
+        }
+
+        .comparison-diff.improvement-neutral {
+            color: #888;
+        }
+
+        .restart-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.2em;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+            margin-top: 10px;
+            width: 100%;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .post-test-btn {
+            background: linear-gradient(135deg, #fcc419 0%, #fab005 100%);
+            color: white;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .restart-btn:hover,
+        .post-test-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .restart-btn:active,
+        .post-test-btn:active {
+            transform: scale(0.95);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #ff6b6b;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            transition: bottom 0.4s ease-out;
+            font-size: 0.9em;
+            max-width: 90%;
+            text-align: center;
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            bottom: 30px;
+        }
+
+        .toast.correct {
+            background-color: #51cf66;
+        }
+
+        /* 知識庫 / 回顧列表樣式 */
+        .knowledge-base {
+            margin-top: 30px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: left;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .knowledge-base h3 {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 10px;
+        }
+
+        .review-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .review-item {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 15px;
+            border-left: 6px solid #ccc;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .review-item.correct {
+            border-left-color: #51cf66;
+        }
+
+        .review-item.wrong {
+            border-left-color: #ff6b6b;
+        }
+
+        .review-q {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+
+        .review-status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .review-status {
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .review-status.correct {
+            color: #2b8a3e;
+        }
+
+        .review-status.wrong {
+            color: #c92a2a;
+        }
+
+        .review-feedback {
+            font-size: 0.9em;
+            color: #555;
+            background: #f1f3f5;
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .nickname-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            max-width: 300px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #nicknameInput {
+            flex-grow: 1;
+            padding: 12px 15px;
+            border-radius: 50px;
+            border: 2px solid #ddd;
+            font-size: 1em;
+        }
+
+        #saveScoreBtn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 50px;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        #saveScoreBtn:hover {
+            transform: scale(1.05);
+        }
+
+        #saveScoreBtn:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+
+        .leaderboard-container {
+            margin-top: 30px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: left;
+            color: white;
+        }
+
+        .leaderboard-container h3 {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        #leaderboardList {
+            list-style-type: decimal;
+            padding-left: 30px;
+            font-size: 1.1em;
+        }
+
+        #leaderboardList li {
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #leaderboardList li span:first-child {
+            font-weight: bold;
+            color: #fcc419;
+            max-width: 70%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #leaderboardList li span:last-child {
+            font-weight: bold;
+            color: white;
+        }
+
+        #leaderboardList .no-scores {
+            list-style: none;
+            text-align: center;
+            color: #ccc;
+            font-style: italic;
+            padding: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="helpIcon">
+        ❓
+        <span class="tooltip">
+            <b>玩法提示：</b><br>
+            向右滑 (✓) 代表「是」<br>
+            向左滑 (✕) 代表「否」<br>
+            注意每題 5 秒倒數！
+        </span>
+    </div>
+
+    <div id="startScreen">
+        <div class="start-modal" id="startModal">
+            <h2>SDGs 遊戲說明 (後測)</h2>
+            <p>歡迎來到後測階段！<br>看看你對永續發展的理解是否加深了？</p>
+            <p class="highlight">
+                <b>注意：題目順序已隨機打亂！</b><br>
+                向右滑 (✓) 代表「正確」<br>
+                向左滑 (✕) 代表「錯誤」
+            </p>
+            <p>注意！每題只有 5 秒鐘！<br>挑戰成為最高等級的目標守護者！</p>
+
+            <a href="SDGS_post_EN.html" class="lang-switch-btn">Switch to English</a>
+            <button id="startGameBtn">開始後測</button>
+        </div>
+    </div>
+
+    <div class="side-hints">
+        <div class="hint hint-left">
+            <div class="hint-item">
+                <div class="hint-icon">✕</div>
+                <span>錯誤</span>
+            </div>
+        </div>
+        <div class="hint hint-right">
+            <div class="hint-item">
+                <div class="hint-icon">✓</div>
+                <span>正確</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>SDGs 永續速決 (後測)</h1>
+            <div class="score">永續積分: <span id="score">0</span> / <span id="total">100</span></div>
+            <div class="timer-container">
+                <div class="timer-bar" id="timerBar"></div>
+                <div class="timer-text" id="timerText">5秒</div>
+            </div>
+        </div>
+
+        <div class="card-container" id="cardContainer"></div>
+
+        <div class="result" id="result">
+            <h2>後測結束！</h2>
+            <div class="result-rank" id="finalRank"></div>
+
+            <!-- 統計方塊佈局 -->
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-label">累積積分</div>
+                    <div class="stat-value score-val"><span id="finalScore">0</span></div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">回答準確率</div>
+                    <div class="stat-value acc-val"><span id="finalAccuracy">0%</span></div>
+                </div>
+            </div>
+
+            <!-- JS 動態插入前後測對比 -->
+
+            <div class="nickname-container" id="nicknameContainer">
+                <input type="text" id="nicknameInput" placeholder="輸入你的昵稱 (最多10個字)" maxlength="10">
+                <button id="saveScoreBtn">儲存分數</button>
+            </div>
+
+            <button class="restart-btn post-test-btn" onclick="goBackPre()">➜ 回到前測首頁</button>
+            <button class="restart-btn" onclick="restartGame()">重新開始後測</button>
+
+            <div class="leaderboard-container" id="leaderboard">
+                <h3>🏆 排行榜 (Top 5) 🏆</h3>
+                <ol id="leaderboardList">
+                </ol>
+            </div>
+            <div class="knowledge-base" id="knowledgeBase"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // SDGs 後測題目 (進階應用)
+        const questionsSource = [
+            { question: "SDG 10『減少不平等』，收入分配不均會阻礙經濟成長和永續發展。", answer: true, feedback: "是的，平等是社會穩定與發展的基石。" },
+            { question: "為了達成 SDG 11『永續城鄉』，每個人都開電動車是唯一的解決方案。", answer: false, feedback: "大眾運輸、步行和自行車也是重要的低碳選擇。" },
+            { question: "SDG 14『水下生命』中，海洋塑膠微粒只會影響魚類，對人類無害。", answer: false, feedback: "微塑膠會透過食物鏈回到人類體內，影響健康。" },
+            { question: "SDG 15『陸域生命』，種植任何樹木都對環境有益，不需要管品種。", answer: false, feedback: "應優先種植『原生種』，避免外來種破壞生態。" },
+            { question: "SDG 8『體面工作與經濟成長』，家務勞動和照護工作也應被視為有價值的貢獻。", answer: true, feedback: "認可無償照護工作是性別平等與經濟發展的一環。" },
+            { question: "SDG 3『健康與福祉』只關注傳染病，心理健康不包含在內。", answer: false, feedback: "心理健康也是整體健康與福祉的重要部分。" },
+            { question: "SDG 9『工業、創新與基礎建設』對於尋找環境問題的解決方案至關重要。", answer: true, feedback: "綠色創新技術能幫助我們更有效率地利用資源。" },
+            { question: "SDG 16『和平、正義與制度』，貪腐和賄賂會阻礙永續發展。", answer: true, feedback: "強健的制度與法治是實踐 SDGs 的基礎。" },
+            { question: "經濟成長可以無限持續下去，不需要考慮地球資源的限制。", answer: false, feedback: "我們只有一個地球，發展必須在生態界限內進行。" },
+            { question: "只要我不浪費食物，個人的小小行動對 SDGs 來說並不重要。", answer: false, feedback: "積少成多！每個人的微小改變都是巨大的力量。" }
+        ];
+
+        let questions = [];
+
+        const GAME_DURATION_PER_QUESTION = 5;
+        const POINTS_PER_QUESTION = 10;
+        const LEADERBOARD_KEY = 'sdgsGameLeaderboard';
+        const MAX_LEADERBOARD_ENTRIES = 5;
+
+        let currentIndex = 0, score = 0, correctCount = 0, startX = 0, currentX = 0;
+        let isDragging = false, currentCard = null, timeRemaining = GAME_DURATION_PER_QUESTION;
+        let timerInterval = null, toastTimer = null;
+        let userResults = [];
+
+        // Fisher-Yates Shuffle
+        function shuffleArray(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function init() {
+            // 每次初始化都隨機洗牌
+            questions = shuffleArray([...questionsSource]);
+
+            currentIndex = 0;
+            score = 0;
+            correctCount = 0;
+            userResults = [];
+            updateScore();
+            document.getElementById('result').classList.remove('show');
+            document.getElementById('cardContainer').style.display = 'block';
+            document.getElementById('knowledgeBase').innerHTML = '';
+
+            // 顯示分數Header
+            const scoreEl = document.querySelector('.header .score');
+            if (scoreEl) scoreEl.style.visibility = 'visible';
+
+            document.getElementById('helpIcon').style.display = 'none';
+            const startScreen = document.getElementById('startScreen');
+            const modal = document.getElementById('startModal');
+            startScreen.style.display = 'flex';
+            startScreen.style.opacity = '1';
+            modal.classList.remove('shrinking');
+            modal.style.opacity = '1';
+
+            // 清除之前的對比結果，避免重複添加
+            const existingComparison = document.querySelector('.comparison-container');
+            if (existingComparison) existingComparison.remove();
+
+            document.getElementById('cardContainer').innerHTML = '';
+            stopTimer();
+        }
+
+        function startGame() {
+            const startScreen = document.getElementById('startScreen');
+            const modal = document.getElementById('startModal');
+
+            modal.classList.add('shrinking');
+            startScreen.style.opacity = '0';
+
+            setTimeout(() => {
+                startScreen.style.display = 'none';
+                document.getElementById('helpIcon').style.display = 'flex';
+
+                createCard();
+            }, 500);
+        }
+
+        function createCard() {
+            if (currentIndex >= questions.length) {
+                showResult();
+                return;
+            }
+
+            const container = document.getElementById('cardContainer');
+            container.innerHTML = '';
+
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="card-number">${currentIndex + 1} / ${questions.length}</div>
+                <div class="card-question">${questions[currentIndex].question}</div>
+                <div class="swipe-indicator swipe-left">✕</div>
+                <div class="swipe-indicator swipe-right">✓</div>
+            `;
+
+            container.appendChild(card);
+            currentCard = card;
+
+            timeRemaining = GAME_DURATION_PER_QUESTION;
+            updateTimer();
+            startTimer();
+
+            card.addEventListener('mousedown', handleStart);
+            document.addEventListener('mousemove', handleMove);
+            document.addEventListener('mouseup', handleEnd);
+            card.addEventListener('touchstart', handleStart);
+            document.addEventListener('touchmove', handleMove);
+            document.addEventListener('touchend', handleEnd);
+        }
+
+        function handleStart(e) {
+            if (!currentCard) return;
+            isDragging = true;
+            currentCard.classList.add('dragging');
+            startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+        }
+
+        function handleMove(e) {
+            if (!isDragging || !currentCard) return;
+
+            e.preventDefault();
+            currentX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+            const deltaX = currentX - startX;
+            const rotation = deltaX * 0.1;
+
+            currentCard.style.transform = `translateX(${deltaX}px) rotate(${rotation}deg)`;
+
+            if (deltaX < -50) {
+                currentCard.classList.add('showing-left');
+                currentCard.classList.remove('showing-right');
+            } else if (deltaX > 50) {
+                currentCard.classList.add('showing-right');
+                currentCard.classList.remove('showing-left');
+            } else {
+                currentCard.classList.remove('showing-left', 'showing-right');
+            }
+        }
+
+        function handleEnd(e) {
+            if (!isDragging || !currentCard) return;
+
+            isDragging = false;
+            currentCard.classList.remove('dragging');
+
+            const deltaX = currentX - startX;
+            const threshold = 100;
+
+            if (Math.abs(deltaX) > threshold) {
+                stopTimer();
+
+                const userAnswer = deltaX > 0;
+                const correctAnswer = questions[currentIndex].answer;
+                const feedback = questions[currentIndex].feedback;
+                let toastMessage = "";
+                let isCorrect = (userAnswer === correctAnswer);
+
+                if (isCorrect) {
+                    score++;
+                    correctCount++;
+                    toastMessage = "答對了！ " + feedback;
+                    showToast(toastMessage, true);
+                } else {
+                    toastMessage = "答錯了！ " + feedback;
+                    if (feedback) {
+                        showToast(toastMessage, false);
+                    }
+                }
+
+                // 記錄結果
+                userResults.push({
+                    question: questions[currentIndex].question,
+                    isCorrect: isCorrect,
+                    feedback: feedback
+                });
+
+                updateScore();
+
+                const flyDistance = window.innerWidth;
+                currentCard.style.transition = 'transform 0.3s ease-out';
+                currentCard.style.transform = `translateX(${deltaX > 0 ? flyDistance : -flyDistance}px) rotate(${deltaX > 0 ? 30 : -30}deg)`;
+
+                setTimeout(() => {
+                    currentIndex++;
+                    createCard();
+                }, 300);
+            } else {
+                currentCard.style.transition = 'transform 0.3s ease-out';
+                currentCard.style.transform = 'translateX(0) rotate(0)';
+                currentCard.classList.remove('showing-left', 'showing-right');
+
+                setTimeout(() => {
+                    if (currentCard) currentCard.style.transition = '';
+                }, 300);
+            }
+
+            startX = 0;
+            currentX = 0;
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = `${score * POINTS_PER_QUESTION}`;
+            document.getElementById('total').textContent = `${questions.length * POINTS_PER_QUESTION}`;
+        }
+
+        function showResult() {
+            stopTimer();
+            document.getElementById('cardContainer').style.display = 'none';
+            document.getElementById('helpIcon').style.display = 'none';
+
+            // 隱藏Header分數，避免重複
+            const scoreEl = document.querySelector('.header .score');
+            if (scoreEl) scoreEl.style.visibility = 'hidden';
+
+            const finalScore = score * POINTS_PER_QUESTION;
+            document.getElementById('finalScore').textContent = `${finalScore}`;
+
+            // 計算並顯示正確率
+            const currentAccuracy = Math.round((correctCount / questions.length) * 100);
+            document.getElementById('finalAccuracy').textContent = `${currentAccuracy}%`;
+
+            // 【後測新增】讀取前測準確率並進行對比
+            const preAccuracy = localStorage.getItem('sdgsPreTestAccuracy');
+            const statsGrid = document.querySelector('.stats-grid');
+
+            // 清除可能已存在的對比方塊
+            const oldComp = document.querySelector('.comparison-container');
+            if (oldComp) oldComp.remove();
+
+            if (preAccuracy !== null) {
+                const diff = currentAccuracy - parseInt(preAccuracy);
+                let diffSign = '';
+                let diffClass = 'improvement-neutral';
+                let diffText = '持平';
+
+                if (diff > 0) {
+                    diffSign = '▲';
+                    diffClass = 'improvement-positive';
+                    diffText = '進步';
+                } else if (diff < 0) {
+                    diffSign = '▼';
+                    diffClass = 'improvement-negative';
+                    diffText = '退步';
+                }
+
+                const comparisonHtml = `
+                    <div class="comparison-container">
+                        <div class="comparison-title">📊 前後測能力分析</div>
+                        <div class="comparison-text">
+                            前測準確率: ${preAccuracy}% <span class="arrow">➜</span> 後測: ${currentAccuracy}%
+                        </div>
+                        <div class="comparison-diff ${diffClass}">
+                            ${diffSign} ${diffText} ${Math.abs(diff)}%
+                        </div>
+                    </div>
+                `;
+
+                statsGrid.insertAdjacentHTML('afterend', comparisonHtml);
+            }
+
+            let rank = "永續觀察員";
+            if (score >= 9) rank = "全球目標守護者 🌍";
+            else if (score >= 6) rank = "行動實踐者 ♻️";
+            else if (score >= 4) rank = "改變推動者 👍";
+            document.getElementById('finalRank').textContent = rank;
+
+            buildKnowledgeBase();
+            loadLeaderboard();
+
+            document.getElementById('nicknameInput').value = '';
+            document.getElementById('nicknameInput').disabled = false;
+            document.getElementById('saveScoreBtn').disabled = false;
+
+            document.getElementById('result').classList.add('show');
+        }
+
+        function buildKnowledgeBase() {
+            const container = document.getElementById('knowledgeBase');
+            container.innerHTML = '<h3>本次挑戰回顧</h3><div class="review-list"></div>';
+            const list = container.querySelector('.review-list');
+
+            userResults.forEach(res => {
+                const item = document.createElement('div');
+                item.className = `review-item ${res.isCorrect ? 'correct' : 'wrong'}`;
+
+                const statusHtml = res.isCorrect
+                    ? '<span class="review-status correct">✓ 答對了</span>'
+                    : '<span class="review-status wrong">✕ 答錯了</span>';
+
+                item.innerHTML = `
+                    <div class="review-q">${res.question}</div>
+                    <div class="review-status-row">${statusHtml}</div>
+                    <div class="review-feedback">${res.feedback}</div>
+                `;
+
+                list.appendChild(item);
+            });
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+
+            timerInterval = setInterval(() => {
+                timeRemaining -= 0.1;
+
+                if (timeRemaining <= 0) {
+                    timeRemaining = 0;
+                    updateTimer();
+                    stopTimer();
+                    handleTimeOut();
+                } else {
+                    updateTimer();
+                }
+            }, 100);
+        }
+
+        function handleTimeOut() {
+            if (!currentCard) return;
+
+            showToast("時間到！動作要快！", false);
+
+            // 記錄時間到的結果 (視為錯誤)
+            userResults.push({
+                question: questions[currentIndex].question,
+                isCorrect: false,
+                feedback: questions[currentIndex].feedback
+            });
+
+            currentCard.style.transition = 'transform 0.3s ease-out';
+            currentCard.style.transform = `translateX(-${window.innerWidth}px) rotate(-30deg)`;
+            currentCard = null;
+
+            setTimeout(() => {
+                currentIndex++;
+                createCard();
+            }, 300);
+        }
+
+        function stopTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        function updateTimer() {
+            const seconds = Math.ceil(timeRemaining);
+            const percentage = (timeRemaining / GAME_DURATION_PER_QUESTION) * 100;
+
+            document.getElementById('timerText').textContent = `${seconds}秒`;
+            document.getElementById('timerBar').style.width = `${percentage}%`;
+
+            const timerBar = document.getElementById('timerBar');
+            if (timeRemaining <= 3) {
+                timerBar.style.background = 'linear-gradient(90deg, #ff6b6b, #fa5252)';
+            } else {
+                timerBar.style.background = 'linear-gradient(90deg, #51cf66, #37b24d)';
+            }
+        }
+
+        function showToast(message, isCorrect) {
+            const toast = document.getElementById('toast');
+            if (!message) return;
+            toast.textContent = message;
+
+            if (isCorrect) toast.classList.add('correct');
+            else toast.classList.remove('correct');
+
+            toast.classList.add('show');
+
+            if (toastTimer) clearTimeout(toastTimer);
+
+            toastTimer = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2500);
+        }
+
+        function saveScore() {
+            const nicknameInput = document.getElementById('nicknameInput');
+            const name = nicknameInput.value.trim();
+
+            if (!name) {
+                showToast("請輸入你的昵稱！", false);
+                return;
+            }
+
+            const currentScore = score * POINTS_PER_QUESTION;
+            const scores = JSON.parse(localStorage.getItem(LEADERBOARD_KEY)) || [];
+
+            scores.push({ name: name, score: currentScore });
+
+            scores.sort((a, b) => b.score - a.score);
+            localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(scores));
+
+            nicknameInput.disabled = true;
+            document.getElementById('saveScoreBtn').disabled = true;
+
+            showToast("分數已儲存！", true);
+            loadLeaderboard();
+        }
+
+        function loadLeaderboard() {
+            const scores = JSON.parse(localStorage.getItem(LEADERBOARD_KEY)) || [];
+            const listElement = document.getElementById('leaderboardList');
+            listElement.innerHTML = '';
+
+            const topScores = scores.slice(0, MAX_LEADERBOARD_ENTRIES);
+
+            if (topScores.length === 0) {
+                listElement.innerHTML = '<li class="no-scores">目前沒有紀錄</li>';
+            } else {
+                topScores.forEach(entry => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span>${entry.name}</span> <span>${entry.score} 分</span>`;
+                    listElement.appendChild(li);
+                });
+            }
+        }
+
+        function restartGame() {
+            init();
+        }
+
+        function goBackPre() {
+            window.location.href = 'SDGS_pre_CN.html';
+        }
+
+        document.getElementById('startGameBtn').addEventListener('click', startGame);
+        document.getElementById('saveScoreBtn').addEventListener('click', saveScore);
+
+        init(); 
+    </script>
+</body>
+
+</html>

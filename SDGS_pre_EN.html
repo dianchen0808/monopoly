@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDGs Quick Decider (Pre-Test)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background-image: url('back.jpg');
+            background-size: 100% 100%;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            /* 改成 fixed */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(5px);
+            z-index: -1;
+        }
+
+        #startScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            transition: opacity 0.5s ease-out;
+            padding: 20px;
+        }
+
+        .start-modal {
+            background: white;
+            padding: 30px 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            transform-origin: center;
+            transition: transform 0.5s ease-in, opacity 0.5s ease-in;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .start-modal.shrinking {
+            transform: translate(50vw, -50vh) scale(0);
+            opacity: 0;
+        }
+
+        .lang-switch-btn {
+            background: #f0f0f0;
+            color: #555;
+            padding: 8px 20px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-top: 10px;
+            margin-bottom: 5px;
+            /* Adjusted spacing */
+            transition: background 0.2s;
+            border: 1px solid #ddd;
+            display: inline-block;
+        }
+
+        .lang-switch-btn:hover {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .start-modal h2 {
+            font-size: 2em;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .start-modal p {
+            font-size: 1.1em;
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .start-modal p.highlight {
+            font-weight: bold;
+            color: #228be6;
+        }
+
+        #startGameBtn {
+            background: #228be6;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.2em;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+            margin-top: 10px;
+        }
+
+        #startGameBtn:hover {
+            transform: scale(1.05);
+        }
+
+        #helpIcon {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            font-size: 1.8em;
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .tooltip {
+            visibility: hidden;
+            opacity: 0;
+            width: 200px;
+            background-color: #333;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 10px 15px;
+            position: absolute;
+            z-index: 1;
+            top: 120%;
+            right: 0;
+            transition: opacity 0.3s;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            pointer-events: none;
+        }
+
+        .tooltip::after {
+            content: "";
+            position: absolute;
+            bottom: 100%;
+            right: 15px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: transparent transparent #333 transparent;
+        }
+
+        #helpIcon:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .container {
+            max-width: 400px;
+            width: 100%;
+            position: relative;
+            overflow: visible;
+        }
+
+        .side-hints {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: black;
+            transition: opacity 0.3s;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .score {
+            font-size: 1.2em;
+            opacity: 0.9;
+            color: black;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+
+        .timer-container {
+            width: 100%;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .timer-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #51cf66, #37b24d);
+            border-radius: 15px;
+            transition: width 0.1s linear;
+            box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.3);
+        }
+
+        .timer-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: bold;
+            font-size: 0.9em;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+        }
+
+        .card {
+            position: absolute;
+            width: 100%;
+            height: 80%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            cursor: grab;
+            transition: transform 0.1s;
+            user-select: none;
+        }
+
+        .card.dragging {
+            cursor: grabbing;
+        }
+
+        .card-question {
+            font-size: 1.5em;
+            text-align: center;
+            color: #333;
+            line-height: 1.5;
+        }
+
+        .card-number {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 0.9em;
+            color: #999;
+        }
+
+        .hint {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            z-index: 11;
+        }
+
+        .hint-left {
+            left: 30px;
+        }
+
+        .hint-right {
+            right: 30px;
+        }
+
+        .hint-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85em;
+            color: white;
+            text-align: center;
+        }
+
+        .hint-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            font-weight: bold;
+        }
+
+        .hint-left .hint-icon {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .hint-right .hint-icon {
+            background: #51cf66;
+            color: white;
+        }
+
+        .swipe-indicator {
+            position: absolute;
+            top: 50%;
+            font-size: 4em;
+            font-weight: bold;
+            opacity: 0;
+            transform: translateY(-50%);
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .swipe-left {
+            left: 30px;
+            color: #ff6b6b;
+        }
+
+        .swipe-right {
+            right: 30px;
+            color: #51cf66;
+        }
+
+        .card.showing-left .swipe-left,
+        .card.showing-right .swipe-right {
+            opacity: 1;
+        }
+
+        .result {
+            display: none;
+            text-align: center;
+            color: white;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result h2 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            color: black;
+        }
+
+        .result-rank {
+            font-size: 2em;
+            font-weight: bold;
+            color: #fcc419;
+            margin-bottom: 20px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Stats Grid Styles */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 15px;
+            color: #333;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .stat-value {
+            font-size: 1.6em;
+            font-weight: 800;
+        }
+
+        .stat-value.score-val {
+            color: #4dabf7;
+        }
+
+        .stat-value.acc-val {
+            color: #51cf66;
+        }
+
+        .restart-btn {
+            background: white;
+            color: #228be6;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-size: 1.2em;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+            margin-top: 10px;
+            width: 100%;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .post-test-btn {
+            background: linear-gradient(135deg, #fcc419 0%, #fab005 100%);
+            color: white;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .restart-btn:hover,
+        .post-test-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .restart-btn:active,
+        .post-test-btn:active {
+            transform: scale(0.95);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #ff6b6b;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            transition: bottom 0.4s ease-out;
+            font-size: 0.9em;
+            max-width: 90%;
+            text-align: center;
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            bottom: 30px;
+        }
+
+        .toast.correct {
+            background-color: #51cf66;
+        }
+
+        /* Review List Styles */
+        .knowledge-base {
+            margin-top: 30px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: left;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .knowledge-base h3 {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            padding-bottom: 10px;
+        }
+
+        .review-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .review-item {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 15px;
+            border-left: 6px solid #ccc;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .review-item.correct {
+            border-left-color: #51cf66;
+        }
+
+        .review-item.wrong {
+            border-left-color: #ff6b6b;
+        }
+
+        .review-q {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+
+        .review-status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .review-status {
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .review-status.correct {
+            color: #2b8a3e;
+        }
+
+        .review-status.wrong {
+            color: #c92a2a;
+        }
+
+        .review-feedback {
+            font-size: 0.9em;
+            color: #555;
+            background: #f1f3f5;
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .nickname-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            max-width: 300px;
+            /* Limit width */
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        #nicknameInput {
+            flex-grow: 1;
+            padding: 12px 15px;
+            border-radius: 50px;
+            border: 2px solid #ddd;
+            font-size: 1em;
+        }
+
+        #saveScoreBtn {
+            background: #228be6;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 50px;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        #saveScoreBtn:hover {
+            transform: scale(1.05);
+        }
+
+        #saveScoreBtn:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+
+        .leaderboard-container {
+            margin-top: 30px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: left;
+            color: white;
+        }
+
+        .leaderboard-container h3 {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        #leaderboardList {
+            list-style-type: decimal;
+            padding-left: 30px;
+            /* For 1. 2. 3. */
+            font-size: 1.1em;
+        }
+
+        #leaderboardList li {
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #leaderboardList li span:first-child {
+            font-weight: bold;
+            color: #fcc419;
+            /* Yellow for name */
+            max-width: 70%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #leaderboardList li span:last-child {
+            font-weight: bold;
+            color: white;
+            /* White for score */
+        }
+
+        #leaderboardList .no-scores {
+            list-style: none;
+            text-align: center;
+            color: #ccc;
+            font-style: italic;
+            padding: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="helpIcon">
+        ❓
+        <span class="tooltip">
+            <b>How to Play:</b><br>
+            Swipe Right (✓) for "Correct"<br>
+            Swipe Left (✕) for "Incorrect"<br>
+            Watch the 5-sec timer!
+        </span>
+    </div>
+
+    <div id="startScreen">
+        <div class="start-modal" id="startModal">
+            <h2>SDGs Game Rules (Pre-test)</h2>
+            <p>You are a "Global Goal Keeper"!<br>Read the statement and decide if it's correct.</p>
+            <p class="highlight">
+                Swipe Right (✓) = "Correct"<br>
+                Swipe Left (✕) = "Incorrect"
+            </p>
+            <p>Warning! Only 5 seconds per question!<br>Get 10 Action Points for each correct answer!</p>
+
+            <a href="SDGS_pre_CN.html" class="lang-switch-btn">切換至繁體中文</a>
+            <button id="startGameBtn">Start Challenge</button>
+        </div>
+    </div>
+
+    <div class="side-hints">
+        <div class="hint hint-left">
+            <div class="hint-item">
+                <div class="hint-icon">✕</div>
+                <span>Incorrect</span>
+            </div>
+        </div>
+        <div class="hint hint-right">
+            <div class="hint-item">
+                <div class="hint-icon">✓</div>
+                <span>Correct</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>SDGs Quick Decider</h1>
+            <div class="score">Action Points: <span id="score">0</span> / <span id="total">100</span></div>
+            <div class="timer-container">
+                <div class="timer-bar" id="timerBar"></div>
+                <div class="timer-text" id="timerText">5s</div>
+            </div>
+        </div>
+
+        <div class="card-container" id="cardContainer"></div>
+
+        <div class="result" id="result">
+            <h2>Game Over!</h2>
+            <div class="result-rank" id="finalRank"></div>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-label">Total Points</div>
+                    <div class="stat-value score-val"><span id="finalScore">0</span></div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Accuracy</div>
+                    <div class="stat-value acc-val"><span id="finalAccuracy">0%</span></div>
+                </div>
+            </div>
+
+            <div class="nickname-container" id="nicknameContainer">
+                <input type="text" id="nicknameInput" placeholder="Enter nickname (max 10 chars)" maxlength="10">
+                <button id="saveScoreBtn">Save Score</button>
+            </div>
+
+            <button class="restart-btn post-test-btn" onclick="goToPostTest()">Start Post-Test (Advanced) ➜</button>
+            <button class="restart-btn" onclick="restartGame()">Restart Pre-Test</button>
+
+            <div class="leaderboard-container" id="leaderboard">
+                <h3>🏆 Leaderboard (Top 5) 🏆</h3>
+                <ol id="leaderboardList">
+                </ol>
+            </div>
+            <div class="knowledge-base" id="knowledgeBase"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // SDGs Pre-test Questions (General Awareness)
+        const questions = [
+            { question: "SDGs (Sustainable Development Goals) are only about 'environmental protection' and unrelated to economic growth.", answer: false, feedback: "SDGs balance economic, social, and environmental dimensions!" },
+            { question: "SDG 1 'No Poverty' means ensuring everyone has basic resources and rights.", answer: true, feedback: "Correct! It aims to end poverty in all its forms everywhere." },
+            { question: "SDG 4 'Quality Education' applies only to children in schools.", answer: false, feedback: "It promotes 'lifelong learning' opportunities for all ages!" },
+            { question: "To achieve SDG 2 'Zero Hunger', we should reduce food waste.", answer: true, feedback: "We produce enough food, but distribution and waste are major issues." },
+            { question: "SDG 13 'Climate Action' suggests it's too late to save the planet.", answer: false, feedback: "We need urgent action to combat climate change and its impacts!" },
+            { question: "SDG 5 'Gender Equality' is not just a human right, but necessary for a peaceful world.", answer: true, feedback: "Empowering women fuels sustainable economies and societies." },
+            { question: "The SDGs only apply to 'developing countries'; developed nations don't need them.", answer: false, feedback: "SDGs are universal goals for all countries!" },
+            { question: "SDG 12 'Responsible Consumption' encourages buying more fast fashion.", answer: false, feedback: "It encourages doing more with less and reducing waste." },
+            { question: "SDG 7 'Affordable and Clean Energy' includes renewable sources like solar and wind.", answer: true, feedback: "Transitioning to clean energy is key to reducing emissions." },
+            { question: "SDG 17 'Partnerships for the Goals' means governments, businesses, and people must work together.", answer: true, feedback: "Solidarity and cooperation are essential for success!" }
+        ];
+
+        const GAME_DURATION_PER_QUESTION = 5;
+        const POINTS_PER_QUESTION = 10;
+        const LEADERBOARD_KEY = 'sdgsGameLeaderboard';
+        const MAX_LEADERBOARD_ENTRIES = 5;
+
+        let currentIndex = 0, score = 0, correctCount = 0, startX = 0, currentX = 0;
+        let isDragging = false, currentCard = null, timeRemaining = GAME_DURATION_PER_QUESTION;
+        let timerInterval = null, toastTimer = null;
+        let userResults = [];
+
+        function init() {
+            currentIndex = 0;
+            score = 0;
+            correctCount = 0;
+            userResults = [];
+            updateScore();
+            document.getElementById('result').classList.remove('show');
+            document.getElementById('cardContainer').style.display = 'block';
+            document.getElementById('knowledgeBase').innerHTML = '';
+
+            // Show header score
+            const scoreEl = document.querySelector('.header .score');
+            if (scoreEl) scoreEl.style.visibility = 'visible';
+
+            document.getElementById('helpIcon').style.display = 'none';
+            const startScreen = document.getElementById('startScreen');
+            const modal = document.getElementById('startModal');
+            startScreen.style.display = 'flex';
+            startScreen.style.opacity = '1';
+            modal.classList.remove('shrinking');
+            modal.style.opacity = '1';
+
+            document.getElementById('cardContainer').innerHTML = '';
+            stopTimer();
+        }
+
+        function startGame() {
+            const startScreen = document.getElementById('startScreen');
+            const modal = document.getElementById('startModal');
+
+            modal.classList.add('shrinking');
+            startScreen.style.opacity = '0';
+
+            setTimeout(() => {
+                startScreen.style.display = 'none';
+                document.getElementById('helpIcon').style.display = 'flex';
+
+                createCard();
+            }, 500);
+        }
+
+        function createCard() {
+            if (currentIndex >= questions.length) {
+                showResult();
+                return;
+            }
+
+            const container = document.getElementById('cardContainer');
+            container.innerHTML = '';
+
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="card-number">${currentIndex + 1} / ${questions.length}</div>
+                <div class="card-question">${questions[currentIndex].question}</div>
+                <div class="swipe-indicator swipe-left">✕</div>
+                <div class="swipe-indicator swipe-right">✓</div>
+            `;
+
+            container.appendChild(card);
+            currentCard = card;
+
+            timeRemaining = GAME_DURATION_PER_QUESTION;
+            updateTimer();
+            startTimer();
+
+            card.addEventListener('mousedown', handleStart);
+            document.addEventListener('mousemove', handleMove);
+            document.addEventListener('mouseup', handleEnd);
+            card.addEventListener('touchstart', handleStart);
+            document.addEventListener('touchmove', handleMove);
+            document.addEventListener('touchend', handleEnd);
+        }
+
+        function handleStart(e) {
+            if (!currentCard) return;
+            isDragging = true;
+            currentCard.classList.add('dragging');
+            startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+        }
+
+        function handleMove(e) {
+            if (!isDragging || !currentCard) return;
+
+            e.preventDefault();
+            currentX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+            const deltaX = currentX - startX;
+            const rotation = deltaX * 0.1;
+
+            currentCard.style.transform = `translateX(${deltaX}px) rotate(${rotation}deg)`;
+
+            if (deltaX < -50) {
+                currentCard.classList.add('showing-left');
+                currentCard.classList.remove('showing-right');
+            } else if (deltaX > 50) {
+                currentCard.classList.add('showing-right');
+                currentCard.classList.remove('showing-left');
+            } else {
+                currentCard.classList.remove('showing-left', 'showing-right');
+            }
+        }
+
+        function handleEnd(e) {
+            if (!isDragging || !currentCard) return;
+
+            isDragging = false;
+            currentCard.classList.remove('dragging');
+
+            const deltaX = currentX - startX;
+            const threshold = 100;
+
+            if (Math.abs(deltaX) > threshold) {
+                stopTimer();
+
+                const userAnswer = deltaX > 0;
+                const correctAnswer = questions[currentIndex].answer;
+                const feedback = questions[currentIndex].feedback;
+                let toastMessage = "";
+                let isCorrect = (userAnswer === correctAnswer);
+
+                if (isCorrect) {
+                    score++;
+                    correctCount++;
+                    toastMessage = "Correct! " + feedback;
+                    showToast(toastMessage, true);
+                } else {
+                    toastMessage = "Incorrect! " + feedback;
+                    if (feedback) {
+                        showToast(toastMessage, false);
+                    }
+                }
+
+                // Record result
+                userResults.push({
+                    question: questions[currentIndex].question,
+                    isCorrect: isCorrect,
+                    feedback: feedback
+                });
+
+                updateScore();
+
+                const flyDistance = window.innerWidth;
+                currentCard.style.transition = 'transform 0.3s ease-out';
+                currentCard.style.transform = `translateX(${deltaX > 0 ? flyDistance : -flyDistance}px) rotate(${deltaX > 0 ? 30 : -30}deg)`;
+
+                setTimeout(() => {
+                    currentIndex++;
+                    createCard();
+                }, 300);
+            } else {
+                currentCard.style.transition = 'transform 0.3s ease-out';
+                currentCard.style.transform = 'translateX(0) rotate(0)';
+                currentCard.classList.remove('showing-left', 'showing-right');
+
+                setTimeout(() => {
+                    if (currentCard) currentCard.style.transition = '';
+                }, 300);
+            }
+
+            startX = 0;
+            currentX = 0;
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = `${score * POINTS_PER_QUESTION}`;
+            document.getElementById('total').textContent = `${questions.length * POINTS_PER_QUESTION}`;
+        }
+
+        function showResult() {
+            stopTimer();
+            document.getElementById('cardContainer').style.display = 'none';
+            document.getElementById('helpIcon').style.display = 'none';
+
+            // Hide Header score
+            const scoreEl = document.querySelector('.header .score');
+            if (scoreEl) scoreEl.style.visibility = 'hidden';
+
+            const finalScore = score * POINTS_PER_QUESTION;
+            document.getElementById('finalScore').textContent = `${finalScore}`;
+
+            // Calculate accuracy
+            const accuracy = Math.round((correctCount / questions.length) * 100);
+            document.getElementById('finalAccuracy').textContent = `${accuracy}%`;
+
+            // Store accuracy for Post-test comparison
+            localStorage.setItem('sdgsPreTestAccuracy', accuracy);
+
+            let rank = "SDG Learner";
+            if (score >= 9) rank = "Global Goal Keeper 🌍";
+            else if (score >= 6) rank = "Action Practitioner ♻️";
+            else if (score >= 4) rank = "Change Maker 👍";
+            document.getElementById('finalRank').textContent = rank;
+
+            buildKnowledgeBase();
+            loadLeaderboard();
+
+            document.getElementById('nicknameInput').value = '';
+            document.getElementById('nicknameInput').disabled = false;
+            document.getElementById('saveScoreBtn').disabled = false;
+
+            document.getElementById('result').classList.add('show');
+        }
+
+        function buildKnowledgeBase() {
+            const container = document.getElementById('knowledgeBase');
+            container.innerHTML = '<h3>Challenge Review</h3><div class="review-list"></div>';
+            const list = container.querySelector('.review-list');
+
+            userResults.forEach(res => {
+                const item = document.createElement('div');
+                item.className = `review-item ${res.isCorrect ? 'correct' : 'wrong'}`;
+
+                const statusHtml = res.isCorrect
+                    ? '<span class="review-status correct">✓ Correct</span>'
+                    : '<span class="review-status wrong">✕ Incorrect</span>';
+
+                item.innerHTML = `
+                    <div class="review-q">${res.question}</div>
+                    <div class="review-status-row">${statusHtml}</div>
+                    <div class="review-feedback">${res.feedback}</div>
+                `;
+
+                list.appendChild(item);
+            });
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+
+            timerInterval = setInterval(() => {
+                timeRemaining -= 0.1;
+
+                if (timeRemaining <= 0) {
+                    timeRemaining = 0;
+                    updateTimer();
+                    stopTimer();
+                    handleTimeOut();
+                } else {
+                    updateTimer();
+                }
+            }, 100);
+        }
+
+        function handleTimeOut() {
+            if (!currentCard) return;
+
+            showToast("Time's up! Be quicker!", false);
+
+            userResults.push({
+                question: questions[currentIndex].question,
+                isCorrect: false,
+                feedback: questions[currentIndex].feedback
+            });
+
+            currentCard.style.transition = 'transform 0.3s ease-out';
+            currentCard.style.transform = `translateX(-${window.innerWidth}px) rotate(-30deg)`;
+            currentCard = null;
+
+            setTimeout(() => {
+                currentIndex++;
+                createCard();
+            }, 300);
+        }
+
+        function stopTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        function updateTimer() {
+            const seconds = Math.ceil(timeRemaining);
+            const percentage = (timeRemaining / GAME_DURATION_PER_QUESTION) * 100;
+
+            document.getElementById('timerText').textContent = `${seconds}s`;
+            document.getElementById('timerBar').style.width = `${percentage}%`;
+
+            const timerBar = document.getElementById('timerBar');
+            if (timeRemaining <= 3) {
+                timerBar.style.background = 'linear-gradient(90deg, #ff6b6b, #fa5252)';
+            } else {
+                timerBar.style.background = 'linear-gradient(90deg, #51cf66, #37b24d)';
+            }
+        }
+
+        function showToast(message, isCorrect) {
+            const toast = document.getElementById('toast');
+            if (!message) return;
+            toast.textContent = message;
+
+            if (isCorrect) toast.classList.add('correct');
+            else toast.classList.remove('correct');
+
+            toast.classList.add('show');
+
+            if (toastTimer) clearTimeout(toastTimer);
+
+            toastTimer = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2500);
+        }
+
+        function saveScore() {
+            const nicknameInput = document.getElementById('nicknameInput');
+            const name = nicknameInput.value.trim();
+
+            if (!name) {
+                showToast("Please enter your nickname!", false);
+                return;
+            }
+
+            const currentScore = score * POINTS_PER_QUESTION;
+            const scores = JSON.parse(localStorage.getItem(LEADERBOARD_KEY)) || [];
+
+            scores.push({ name: name, score: currentScore });
+
+            scores.sort((a, b) => b.score - a.score);
+            localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(scores));
+
+            nicknameInput.disabled = true;
+            document.getElementById('saveScoreBtn').disabled = true;
+
+            showToast("Score saved!", true);
+            loadLeaderboard();
+        }
+
+        function loadLeaderboard() {
+            const scores = JSON.parse(localStorage.getItem(LEADERBOARD_KEY)) || [];
+            const listElement = document.getElementById('leaderboardList');
+            listElement.innerHTML = '';
+
+            const topScores = scores.slice(0, MAX_LEADERBOARD_ENTRIES);
+
+            if (topScores.length === 0) {
+                listElement.innerHTML = '<li class="no-scores">No scores yet</li>';
+            } else {
+                topScores.forEach(entry => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span>${entry.name}</span> <span>${entry.score} pts</span>`;
+                    listElement.appendChild(li);
+                });
+            }
+        }
+
+        function restartGame() {
+            init();
+        }
+
+        function goToPostTest() {
+            window.location.href = 'SDGS_post_EN.html';
+        }
+
+        document.getElementById('startGameBtn').addEventListener('click', startGame);
+        document.getElementById('saveScoreBtn').addEventListener('click', saveScore);
+
+        init(); 
+    </script>
+</body>
+
+</html>
